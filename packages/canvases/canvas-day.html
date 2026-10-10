@@ -1,0 +1,256 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Meridian Day Canvas</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: rgba(255,255,255,0.04);
+    --stroke: rgba(255,255,255,0.08);
+    --ink: #e8ecf4;
+    --dim: #8b94a7;
+    --travel: #6ab7ff;
+    --work: #ffd479;
+    --family: #ff8fa3;
+    --health: #7fe3b8;
+    --deposit: #b28dff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(1200px 600px at 70% -10%, rgba(106,183,255,0.12), transparent),
+                radial-gradient(1000px 500px at 0% 110%, rgba(178,141,255,0.10), transparent),
+                var(--bg);
+    color: var(--ink);
+    overflow-x: hidden;
+  }
+  main { display: grid; grid-template-rows: auto 1fr auto; min-height: 100%; }
+
+  header { padding: 14px 18px 10px; }
+  h1 { font-size: 15px; letter-spacing: 0.4px; font-weight: 600; opacity: 0.92; }
+  h1 .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#7fe3b8; margin-right:8px; box-shadow:0 0 10px #7fe3b8; }
+
+  #pipeline { display:flex; gap:8px; overflow-x:auto; padding: 8px 18px; scrollbar-width: none; }
+  #pipeline::-webkit-scrollbar { display:none; }
+  .chip {
+    flex:0 0 auto;
+    font-size: 12px; color:var(--dim);
+    border:1px solid var(--stroke);
+    border-radius:999px;
+    padding:5px 11px;
+    background: var(--panel);
+    animation: chipIn .35s ease both;
+    display:flex; align-items:center; gap:6px;
+  }
+  .chip .k { width:7px; height:7px; border-radius:50%; background: currentColor; opacity:.8; }
+  .chip.plan .k { background:#b28dff; } .chip.plan { color:#b28dff; }
+  .chip.lookup .k { background:#6ab7ff; } .chip.lookup { color:#6ab7ff; }
+  .chip.compute .k { background:#ffd479; } .chip.compute { color:#ffd479; }
+  .chip.commit .k { background:#7fe3b8; } .chip.commit { color:#7fe3b8; }
+  @keyframes chipIn { from { transform: translateY(6px); opacity:0; } to { transform: none; opacity:1; } }
+
+  #lanes { display:grid; grid-template-columns: 1fr 1fr; gap:14px; padding: 8px 18px 18px; position:relative; }
+  .lane {
+    position: relative;
+    border:1px solid var(--stroke);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01));
+    padding: 12px 12px 12px 44px;
+    min-height: 300px;
+    overflow: hidden;
+  }
+  .lane h2 { font-size:12px; color:var(--dim); text-transform:uppercase; letter-spacing:1.4px; margin-bottom:8px; font-weight:600; }
+  .rail { position:absolute; left:44px; right:12px; top:44px; bottom:12px; border-left:1px dashed rgba(255,255,255,0.10); }
+  .railline { position:relative; height:100%; }
+  .block {
+    position:absolute; left:0; right:8px;
+    border-radius: 12px;
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.06);
+    border:1px solid rgba(255,255,255,0.14);
+    cursor: grab;
+    transition: transform .18s ease, box-shadow .18s ease, background .18s;
+    will-change: transform;
+    backdrop-filter: blur(4px);
+    font-size: 12.5px;
+    line-height: 1.35;
+  }
+  .block.dragging { cursor:grabbing; z-index:10; box-shadow: 0 14px 34px rgba(0,0,0,0.55); transform: scale(1.03); }
+  .block.travel { border-color: rgba(106,183,255,0.45); background: linear-gradient(90deg, rgba(106,183,255,0.22), rgba(106,183,255,0.08)); }
+  .block.work { border-color: rgba(255,212,121,0.45); background: linear-gradient(90deg, rgba(255,212,121,0.22), rgba(255,212,121,0.08)); }
+  .block.family { border-color: rgba(255,143,163,0.45); background: linear-gradient(90deg, rgba(255,143,163,0.22), rgba(255,143,163,0.08)); }
+  .block.health { border-color: rgba(127,227,184,0.45); background: linear-gradient(90deg, rgba(127,227,184,0.22), rgba(127,227,184,0.08)); }
+  .block.deposit { border-color: rgba(178,141,255,0.45); background: linear-gradient(90deg, rgba(178,141,255,0.22), rgba(178,141,255,0.08)); }
+  .block .time { font-size:10.5px; color:var(--dim); font-variant-numeric: tabular-nums; }
+  .block .t { font-weight:600; color: var(--ink); }
+  .block .n { font-size:11px; color: var(--dim); margin-top:2px; }
+  .block.pop { animation: pop .4s ease both; }
+  @keyframes pop { 0% { transform: translateY(14px) scale(.96); opacity: 0; } 100% { transform:none; opacity:1; } }
+
+  footer { padding: 10px 18px 16px; font-size: 11px; color: var(--dim); display:flex; gap:14px; align-items:center; }
+  .legend { display:flex; gap:10px; flex-wrap: wrap; }
+  .legend i { display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:5px; vertical-align:middle; }
+  #status { margin-left:auto; opacity:.7; }
+  #status.flash { animation: flash .6s ease; }
+  @keyframes flash { 0%,100% { color: var(--dim);} 50% { color:#7fe3b8; } }
+
+  .empty { color:var(--dim); font-size:12.5px; padding:20px 6px; text-align:center; }
+</style>
+</head>
+<body>
+<main>
+  <header><h1><span class="dot"></span>Meridian - your day, orchestrated</h1></header>
+  <div id="pipeline"></div>
+  <div id="lanes">
+    <section class="lane" data-day="today"><h2>Today</h2><div class="rail"><div class="railline"></div></div><div class="blocks"></div></section>
+    <section class="lane" data-day="tomorrow"><h2>Tomorrow</h2><div class="rail"><div class="railline"></div></div><div class="blocks"></div></section>
+  </div>
+  <footer>
+    <div class="legend">
+      <span><i style="background:var(--travel)"></i>Travel</span>
+      <span><i style="background:var(--work)"></i>Work</span>
+      <span><i style="background:var(--family)"></i>Family</span>
+      <span><i style="background:var(--health)"></i>Health</span>
+      <span><i style="background:var(--deposit)"></i>Deposit</span>
+    </div>
+    <div id="status">waiting for Meridian...</div>
+  </footer>
+</main>
+<script>
+  const TAG_COLORS = { travel:"var(--travel)", work:"var(--work)", family:"var(--family)", health:"var(--health)", deposit:"var(--deposit)" };
+  const DAY_HEIGHT = 240; // 18 hours mapped to 240px
+  const blocks = [];
+  const parentWindow = window.parent;
+
+  function scrollToBottom(el) { el.scrollTop = el.scrollHeight; }
+
+  function chips(list) {
+    const wrap = document.getElementById("pipeline");
+    wrap.innerHTML = "";
+    for (const c of list.slice(-14)) {
+      const el = document.createElement("div");
+      el.className = `chip ${c.kind || "plan"}`;
+      el.innerHTML = `<i class="k"></i>${escapeHtml(c.step || "")}`;
+      wrap.appendChild(el);
+    }
+    wrap.scrollLeft = wrap.scrollWidth;
+  }
+
+  function render() {
+    for (const lane of document.querySelectorAll(".lane")) {
+      const wrap = lane.querySelector(".blocks");
+      wrap.innerHTML = "";
+      const day = lane.dataset.day;
+      const list = blocks.filter(b => b.day === day).sort((a,b) => a.start.localeCompare(b.start));
+      if (!list.length) {
+        wrap.innerHTML = `<div class="empty">${day === "today" ? "Your day in Meridian's hands..." : "Tomorrow, planned"}</div>`;
+        continue;
+      }
+      for (const b of list) {
+        const el = document.createElement("div");
+        el.className = `block ${b.tag || "work"}`;
+        el.style.top = `${timeToY(b.start)}px`;
+        el.style.height = `${Math.max(34, (b.dur / 18 / 60) * DAY_HEIGHT * 18 / 60)}px`;
+        el.style.height = `${Math.max(34, b.dur * 0.28)}px`;
+        el.dataset.id = b.id;
+        el.innerHTML = `
+          <div class="time">${b.start} - ${b.dur}m</div>
+          <div class="t">${escapeHtml(b.title)}</div>
+          ${b.note ? `<div class="n">${escapeHtml(b.note)}</div>` : ""}
+        `;
+        el.classList.add("pop");
+        makeDraggable(el, b);
+        wrap.appendChild(el);
+      }
+    }
+  }
+
+  function timeToY(start) {
+    const [h, m] = start.split(":").map(Number);
+    return ((h * 60 + m) / (18 * 60)) * DAY_HEIGHT;
+  }
+
+  function makeDraggable(el, block) {
+    el.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      el.setPointerCapture(e.pointerId);
+      const startX = e.clientX, startY = e.clientY;
+      const origTop = parseFloat(el.style.top);
+      const origLeft = 0;
+      const laneW = el.parentElement.getBoundingClientRect().width;
+      el.classList.add("dragging");
+      let deltaTop = 0, deltaLeft = 0;
+
+      const move = (me) => {
+        deltaTop = me.clientY - startY;
+        deltaLeft = me.clientX - startX;
+        el.style.transform = `translate(${deltaLeft}px, ${deltaTop}px)`;
+      };
+      const up = (ue) => {
+        el.releasePointerCapture(e.pointerId);
+        el.classList.remove("dragging");
+        el.style.transform = "";
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+
+        const lanes = Array.from(document.querySelectorAll(".lane"));
+        const curIdx = lanes.findIndex(l => l.dataset.day === block.day);
+        const targetIdx = deltaLeft > laneW / 2 && curIdx === 0 ? 1 : deltaLeft < -laneW / 2 && curIdx === 1 ? 0 : curIdx;
+        const targetDay = lanes[targetIdx].dataset.day;
+
+        // snap start to 15-min grid within day bounds
+        const origMin = block.start.split(":").reduce((h, m) => h * 60 + Number(m));
+        let newMin = origMin + Math.round((deltaTop / DAY_HEIGHT) * (18 * 60) / 15) * 15;
+        newMin = Math.max(5 * 60, Math.min(21 * 60, newMin));
+        const newStart = `${String(Math.floor(newMin / 60)).padStart(2, "0")}:${String(newMin % 60).padStart(2, "0")}`;
+
+        if (targetDay !== block.day || newStart !== block.start) {
+          parentWindow.postMessage({
+            type: "meridian:drag",
+            payload: { id: block.id, day: targetDay, start: newStart },
+          }, "*");
+          const s = document.getElementById("status");
+          s.textContent = "re-orchestrating...";
+          s.classList.add("flash");
+        }
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+    });
+  }
+
+  // ---- message protocol (host <-> canvas) ----
+  window.addEventListener("message", (ev) => {
+    const msg = ev.data || {};
+    if (msg.type === "meridian:event") {
+      const p = msg.payload || {};
+      if (p.type === "progress") {
+        window.__chips = window.__chips || [];
+        window.__chips.push({ step: p.step, kind: p.kind });
+        chips(window.__chips);
+      } else if (p.type === "canvas") {
+        window.__chips = window.__chips || [];
+        render();
+        const s = document.getElementById("status");
+        s.textContent = "canvas updated";
+        s.classList.remove("flash");
+        void s.offsetWidth; s.classList.add("flash");
+      } else if (p.type === "assistant_text") {
+        const s = document.getElementById("status");
+        s.textContent = "Meridian is thinking...";
+      }
+    } else if (msg.type === "meridian:init") {
+      const s = document.getElementById("status");
+      s.textContent = "ready";
+    }
+  });
+
+  function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+  parentWindow.postMessage({ type: "meridian:ready" }, "*");
+</script>
+</body>
+</html>

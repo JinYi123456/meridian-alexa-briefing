@@ -1,0 +1,308 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Meridian Simulator - a look inside Alexa++</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --bg: #07090d;
+    --ink: #e8ecf4;
+    --dim: #8792a6;
+    --accent: #6ab7ff;
+    --panel: rgba(255,255,255,0.05);
+    --stroke: rgba(255,255,255,0.09);
+  }
+  * { box-sizing: border-box; margin:0; padding:0; }
+  html, body { height: 100%; }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(1200px 700px at 80% -10%, rgba(106,183,255,0.14), transparent),
+                radial-gradient(1100px 600px at 10% 110%, rgba(178,141,255,0.12), transparent),
+                var(--bg);
+    color: var(--ink);
+    display: flex; flex-direction: column;
+    min-height: 100vh;
+  }
+  header { padding: 18px 22px 12px; display:flex; justify-content: space-between; align-items:center; }
+  header h1 { font-size: 14px; font-weight: 600; letter-spacing: 0.3px; }
+  header .badge {
+    font-size: 10.5px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--dim);
+    border: 1px solid var(--stroke); border-radius: 999px; padding: 5px 12px;
+  }
+  main { flex: 1; display: flex; flex-direction: column; max-width: 880px; width: 100%; margin: 0 auto; padding: 0 22px; gap: 16px; }
+
+  #stream { display: flex; flex-direction: column; gap: 14px; padding-bottom: 6px; }
+  .msg { display: flex; gap: 10px; align-items: flex-start; animation: slide .35s ease both; }
+  .msg.user { justify-content: flex-end; }
+  .avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, #6ab7ff, #b28dff); flex: 0 0 auto; margin-top: 3px; }
+  .bubble {
+    max-width: 78%;
+    background: var(--panel);
+    border: 1px solid var(--stroke);
+    padding: 10px 14px;
+    border-radius: 16px 16px 16px 6px;
+    font-size: 13.5px; line-height: 1.55;
+  }
+  .msg.user .bubble {
+    border-radius: 16px 16px 6px 16px;
+    background: linear-gradient(135deg, rgba(106,183,255,0.20), rgba(178,141,255,0.16));
+  }
+  @keyframes slide { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  #canvasHost {
+    width: 100%;
+    min-height: 340px;
+    border-radius: 20px;
+    border: 1px solid var(--stroke);
+    overflow: hidden;
+    background: rgba(11,13,18,0.6);
+    display: none;
+  }
+  #canvasHost iframe { width: 100%; height: 380px; border: 0; display: block; }
+  #canvasHost.show { display: block; animation: slide .4s ease both; }
+
+  #composer {
+    display: flex; gap: 10px; padding: 16px 0 24px;
+    position: sticky; bottom: 0;
+    background: linear-gradient(180deg, transparent, rgba(7,9,13,0.9) 40%);
+  }
+  #composer input {
+    flex: 1; background: var(--panel); border: 1px solid var(--stroke); border-radius: 14px;
+    padding: 13px 16px; color: var(--ink); font-size: 14px; outline: none;
+  }
+  #composer input::placeholder { color: var(--dim); }
+  #composer input:focus { border-color: rgba(106,183,255,0.5); box-shadow: 0 0 0 3px rgba(106,183,255,0.10); }
+  #composer button {
+    background: linear-gradient(135deg, #6ab7ff, #b28dff);
+    border: 0; color: #07090d; font-weight: 700; padding: 0 20px; border-radius: 14px; cursor: pointer;
+    font-size: 14px; transition: transform .15s;
+  }
+  #composer button:hover { transform: translateY(-1px); }
+  #composer button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .hint { color: var(--dim); font-size: 11.5px; padding: 8px 4px 0; text-align:center; letter-spacing: 0.2px; }
+  .sugg { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; padding: 0 0 4px; }
+  .sugg button {
+    font-size: 11.5px; color: var(--ink); background: var(--panel); border: 1px solid var(--stroke);
+    border-radius: 999px; padding: 6px 13px; cursor: pointer;
+  }
+  .sugg button:hover { border-color: rgba(106,183,255,0.5); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Meridian</h1>
+  <div class="badge">simulated Alexa+ client</div>
+</header>
+<main>
+  <div id="suggestions" class="sugg">
+    <button data-say="I'm flying to Taipei next Wednesday to meet Nova Robotics, I have a demo report due Thursday and my dad's birthday is this weekend and I haven't booked any dinner yet. Help me make sense of this week."> Business trip + deadline + Dad's birthday</button>
+    <button data-say="I signed up for a half-marathon in 6 weeks and I still eat like rubbish, plan my evenings between training, meals and work."> Health + work balance</button>
+    <button data-say="I keep forgetting to follow up with Unknown Labs and I owe my landlord the deposit by Friday. Add reminders and organize my week."> Follow-ups + rent deadline</button>
+  </div>
+  <div id="stream"></div>
+  <div id="canvasHost"><iframe id="canvasFrame" title="Meridian day canvas"></iframe></div>
+  <div id="composer">
+    <input id="input" placeholder="Say something messy - Meridian makes sense of it..." autocomplete="off" />
+    <button id="send">Send</button>
+  </div>
+  <div class="hint">[ conversation - MCP spec 2025-11-25 - Streamable HTTP - server-push notifications ]</div>
+</main>
+<script type="module">
+  const MCP_URL = "http://localhost:3001/mcp";
+  let sessionId = null;
+  let canvasLoaded = false;   // set true on canvas 'meridian:ready'
+  let rpcId = 100;            // intake counter for JSON-RPC integer ids
+  const stream = document.getElementById("stream");
+  const input = document.getElementById("input");
+  const sendBtn = document.getElementById("send");
+  const canvasHost = document.getElementById("canvasHost");
+  const canvasFrame = document.getElementById("canvasFrame");
+
+  // --- MCP client over Streamable HTTP ---
+  async function mcpSend(body, opts = {}) {
+    const res = await fetch(MCP_URL, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        ...(sessionId ? { "mcp-session-id": sessionId } : {}),
+        "mcp-protocol-version": "2025-11-25",
+      },
+      body: JSON.stringify(body),
+    });
+    const sid = res.headers.get("mcp-session-id");
+    if (sid && !sessionId) sessionId = sid;
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error(`MCP ${res.status}: ${t.slice(0, 200)}`);
+    }
+    const ct = res.headers.get("content-type") || "";
+    if (!opts.empty && ct.includes("application/json")) return (await res.json());
+    if (ct.includes("text/event-stream")) {
+      const text = await res.text();
+      const parts = text.split("\n\n").filter(Boolean);
+      for (const chunk of parts) {
+        if (chunk.startsWith("data:")) return JSON.parse(chunk.slice(5));
+      }
+      return { result: null };
+    }
+    return { result: null };
+  }
+
+  async function initMcp() {
+    const res = await mcpSend({
+      jsonrpc: "2.0", id: 1, method: "initialize",
+      params: {
+        protocolVersion: "2025-11-25",
+        capabilities: { roots: {}, sampling: {} },
+        clientInfo: { name: "meridian-simulator", version: "0.1.0" },
+      },
+    });
+    await mcpSend({ jsonrpc: "2.0", method: "notifications/initialized" }, { empty: true });
+    await openStream();
+    await loadCanvas();
+    return res;
+  }
+
+  function openStream() {
+    // EventSource cannot set custom headers; fetchSse handles the real stream.
+    return fetchSse();
+  }
+
+  // eventsource doesn't send custom headers; use fetch-based SSE reader
+  async function fetchSse() {
+    const ctrl = new AbortController();
+    const res = await fetch(MCP_URL, {
+      method: "GET",
+      headers: { accept: "text/event-stream", ...(sessionId ? { "mcp-session-id": sessionId } : {}) },
+      signal: ctrl.signal,
+    });
+    if (!res.ok || !res.body) { ctrl.abort(); return; }
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) >= 0) {
+        const raw = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        for (const line of raw.split("\n")) {
+          if (line.startsWith("data:")) {
+            const payload = line.slice(5).trim();
+            try {
+              const j = JSON.parse(payload);
+              if (j?.params?.data) routePush(JSON.parse(j.params.data));
+            } catch {}
+          }
+        }
+      }
+    }
+  }
+
+  function routePush(p) {
+    bubbleCanvas(p);
+    if (p.type === "proactive") {
+      addMsg("meridian", `[ALARM] ${p.message}`);
+    } else if (p.type === "assistant_text") {
+      addMsg("meridian", p.text);
+    }
+  }
+
+  let canvasMsgQueue = [];
+  function bubbleCanvas(payload) { canvasMsgQueue.push(payload); flushCanvas(); }
+  function flushCanvas() {
+    if (!canvasFrame.contentWindow) return;
+    for (const p of canvasMsgQueue) {
+      canvasFrame.contentWindow.postMessage({ type: "meridian:event", payload: p }, "*");
+    }
+    canvasMsgQueue = [];
+  }
+  window.addEventListener("message", (ev) => {
+    if (ev.data?.type === "meridian:ready" && !canvasLoaded) {
+      canvasLoaded = true;
+      flushCanvas();
+    } else if (ev.data?.type === "meridian:drag") {
+      handleDrag(ev.data.payload);
+    }
+  });
+
+  async function loadCanvas() {
+    const resources = await mcpSend({ jsonrpc: "2.0", id: rpcId++, method: "resources/read", params: { uri: "ui://meridian/canvas.html" } });
+    const contents = resources?.result?.contents || [];
+    const html = decodeBlob(contents[0]);
+    if (html) {
+      canvasFrame.srcdoc = html;
+      canvasHost.classList.add("show");
+    }
+  }
+
+  function decodeBlob(content) {
+    if (content?.blob) {
+      try { return atob(content.blob); } catch { return ""; }
+    }
+    if (content?.text) return content.text;
+    return "";
+  }
+
+  async function callTool(name, args) {
+    const res = await mcpSend({
+      jsonrpc: "2.0", id: rpcId++, method: "tools/call",
+      params: { name, arguments: args },
+    });
+    return res?.result;
+  }
+
+  function addMsg(who, text) {
+    const row = document.createElement("div");
+    row.className = `msg ${who}`;
+    const av = document.createElement("div");
+    av.className = "avatar";
+    const b = document.createElement("div");
+    b.className = "bubble";
+    b.innerHTML = escapeHtml(text).replace(/\n/g, "<br/>");
+    if (who === "user") { row.appendChild(b); }
+    else { row.appendChild(av); row.appendChild(b); }
+    stream.appendChild(row);
+    window.scrollTo(0, document.body.scrollHeight);
+  }
+
+  function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s||""; return d.innerHTML; }
+
+  let busy = false;
+  async function handleSend(text) {
+    if (!text.trim() || busy) return;
+    busy = true; sendBtn.disabled = true;
+    addMsg("user", text);
+    try {
+      const res = await callTool("meridian_chat", { message: text });
+      const txt = res?.content?.[0]?.text || "";
+      if (txt) addMsg("meridian", txt);
+    } catch (e) {
+      addMsg("meridian", `[WARN] ${e.message}`);
+    }
+    busy = false; sendBtn.disabled = false;
+  }
+
+  async function handleDrag({ id, day, start }) {
+    try {
+      await callTool("reprioritize", { draggedId: id, newDay: day, newStart: start });
+    } catch (e) { console.warn("drag failed", e); }
+  }
+
+  document.getElementById("send").addEventListener("click", () => handleSend(input.value));
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") handleSend(input.value); });
+  document.querySelectorAll(".sugg button").forEach((b) => {
+    b.addEventListener("click", () => handleSend(b.dataset.say));
+  });
+
+  initMcp().catch((e) => {
+    addMsg("meridian", `[WARN] Could not reach MCP server at ${MCP_URL} - ${e.message}`);
+  });
+</script>
+</body>
+</html>
