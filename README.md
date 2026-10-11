@@ -10,7 +10,8 @@ Built for the **Alexa+ track** of the [Amazon Developer Hackathon](https://amazo
 
 - A **self-hosted MCP server** on the **official MCP spec 2025-11-25** over **Streamable HTTP** (single `/mcp` endpoint, POST + GET SSE push channel, MCP session management, Origin validation)
 - A **simulated Alexa+ web client** that acts as a real MCP host: it initializes an MCP session, lists tools, reads the `ui://meridian/canvas.html` **MCP App resource**, renders it in a sandboxed iframe, and receives **server-initiated notifications** live
-- An **agentic planning loop** powered by Google **Gemini** native tool-calling, with **Tavily** web search as a supporting tool
+- An **agentic planning loop** powered by **Featherless** (OpenAI-compatible inference on Llama-3.3-70B) with automatic fallback to Google **Gemini** native tool-calling, plus **Tavily** web search as a supporting tool
+- **Voice input** (browser-native SpeechRecognition) and **any-language chat** - the agent replies, labels progress steps, and writes canvas blocks in the language you spoke (English, 中文, Malay, …)
 - MCP **Apps**-style interactive UI (SEP-1865 pattern): the tool result renders as a rich, draggable canvas - not plain text
 
 ## What makes it different
@@ -35,7 +36,7 @@ Key technical pieces, all wired for real (verified end-to-end):
 - **Streamable HTTP transport**: POST for JSON-RPC, GET for the standalone SSE push stream, `MCP-Session-Id` session tracking, DELETE for session teardown, `MCP-Protocol-Version` header handling
 - **Server-initiated notifications**: agent progress, canvas updates, and scheduled reminders are delivered over the GET stream while a tool call is still running
 - **MCP App resource**: `resources/read ui://meridian/canvas.html` returns the full interactive canvas, which the host renders and drives via postMessage
-- **Zod-validated tool schemas** mirrored between the MCP server (`registerTool`) and the Gemini function-calling loop (single source of truth in `tools.js`)
+- **Zod-validated tool schemas** mirrored between the MCP server (`registerTool`) and the LLM tool-calling loop (single source of truth in `tools.js`), with a provider abstraction that speaks both Featherless (OpenAI `tool_calls`) and Gemini (native `functionCall`) dialects
 
 ## Quickstart
 
@@ -47,8 +48,15 @@ npm install
 
 # 2. Add your free API keys
 cp .env.example .env
-#    Edit .env with your GEMINI_API_KEY (https://aistudio.google.com)
-#    and optionally TAVILY_API_KEY (https://tavily.com) for web search.
+#    Edit .env with:
+#    FEATHERLESS_API_KEY  (https://featherless.ai) - primary provider, tool-calling open models
+#    GEMINI_API_KEY       (https://aistudio.google.com) - automatic fallback provider
+#    TAVILY_API_KEY       (https://tavily.com, optional) - web search tool
+#
+#    Provider selection: MODEL_PROVIDER=featherless|gemini, or leave unset for
+#    auto-detect (featherless if its key is present, else gemini). If the active
+#    provider errors, the agent transparently falls back to the other.
+#    Model override: FEATHERLESS_MODEL (default unsloth/Llama-3.3-70B-Instruct).
 
 # 3. Start the MCP server (terminal 1)
 npm run start -w packages/mcp-server
@@ -59,7 +67,32 @@ npx serve packages/simulator -l 5173
 #    Open http://localhost:5173 in your browser
 ```
 
-Then click one of the scenario chips (or type your own messy week) and watch the canvas plan itself.
+Then click one of the scenario chips (or type your own messy week) — or press the 🎙 mic and speak it. The agent replies in the language you used.
+
+### Try it online (simulator UI)
+
+A deployed copy of the simulator UI is available (managed hosting, free TLS):
+
+```
+https://site-0e55de5de9cb46caa8261ef4b12d7921.freebuff.page
+```
+
+It serves the same `packages/simulator` UI through a Worker (`deploy/worker.js`, see `deploy/README.md`).
+Two ways to run the UI against **your** Meridian MCP server:
+
+1. Run the local MCP server (Quickstart step 3) and open the deployed page on the same machine — set the server address in the URL, e.g. `?mcp=http%3A%2F%2Flocalhost%3A3001%2Fmcp`
+2. Host the MCP server yourself (any Node host / VPS / Fly.io) and point the deployed UI at it: `https://…/index.html?mcp=https://your-server.example.com/mcp`
+
+The full production setup (agent brain + tools + canvas server) must always run where your API keys live — that part is self-hosted by design.
+
+### How to deploy the simulator UI
+
+```bash
+# regenerate the bundle (inlines index.html into worker.js)
+node deploy/inline.cjs
+# then push deploy/manifest.json to your Sites host
+# (see deploy/README.md for the exact sites_deploy call and env)
+```
 
 ### Using Meridian from any MCP client
 
@@ -81,7 +114,7 @@ Because Meridian is a standard MCP server, you can also drive it from Claude Des
 
 | Tool | What it does |
 |---|---|
-| `meridian_chat` | Main entry point: send the utterance, agent plans and updates the canvas |
+| `meridian_chat` | Main entry point: send the utterance (typed or 🎙 spoken), agent plans and updates the canvas |
 | `current_time` | Deterministic clock (no LLM needed) |
 | `push_progress` | Streams an orchestration step into the live UI |
 | `write_canvas` / `read_canvas` | Commit / inspect schedule blocks |
@@ -96,7 +129,7 @@ Because Meridian is a standard MCP server, you can also drive it from Claude Des
 
 ## Product feedback on the tools used
 
-See `docs/product-feedback.md` for our hands-on notes on the MCP TypeScript SDK, the MCP Apps extension, Gemini, and Tavily - what worked, what needs work, and how onboarding felt.
+See `docs/product-feedback.md` for our hands-on notes on the MCP TypeScript SDK, the MCP Apps extension, Featherless, Gemini, and Tavily - what worked, what needs work, and how onboarding felt.
 
 ## License
 

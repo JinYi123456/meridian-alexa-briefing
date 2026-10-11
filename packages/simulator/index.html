@@ -1,124 +1,354 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Meridian Simulator - a look inside Alexa++</title>
+<title>Meridian — Alexa+ Simulator</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
+  /* ---------- design tokens ---------- */
   :root {
-    --bg: #07090d;
-    --ink: #e8ecf4;
-    --dim: #8792a6;
-    --accent: #6ab7ff;
-    --panel: rgba(255,255,255,0.05);
+    --bg-0: #05060b;
+    --bg-1: #090b14;
+    --ink: #eef1fb;
+    --dim: #8b93ad;
+    --faint: #565e78;
+    --glass: rgba(255,255,255,0.045);
+    --glass-strong: rgba(255,255,255,0.075);
     --stroke: rgba(255,255,255,0.09);
+    --stroke-bright: rgba(255,255,255,0.16);
+    --a1: #7c9cff;   /* azure  */
+    --a2: #c98bff;   /* violet */
+    --a3: #67e8c3;   /* mint   */
+    --a4: #ffb37c;   /* ember  */
+    --ok: #67e8c3;
+    --warn: #ffb37c;
+    --radius: 18px;
+    --font: "Sora", ui-sans-serif, system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
   }
-  * { box-sizing: border-box; margin:0; padding:0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body {
-    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    background: radial-gradient(1200px 700px at 80% -10%, rgba(106,183,255,0.14), transparent),
-                radial-gradient(1100px 600px at 10% 110%, rgba(178,141,255,0.12), transparent),
-                var(--bg);
+    font-family: var(--font);
+    background: var(--bg-0);
     color: var(--ink);
-    display: flex; flex-direction: column;
-    min-height: 100vh;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
   }
-  header { padding: 18px 22px 12px; display:flex; justify-content: space-between; align-items:center; }
-  header h1 { font-size: 14px; font-weight: 600; letter-spacing: 0.3px; }
-  header .badge {
-    font-size: 10.5px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--dim);
-    border: 1px solid var(--stroke); border-radius: 999px; padding: 5px 12px;
-  }
-  main { flex: 1; display: flex; flex-direction: column; max-width: 880px; width: 100%; margin: 0 auto; padding: 0 22px; gap: 16px; }
 
-  #stream { display: flex; flex-direction: column; gap: 14px; padding-bottom: 6px; }
-  .msg { display: flex; gap: 10px; align-items: flex-start; animation: slide .35s ease both; }
+  /* ---------- aurora backdrop ---------- */
+  .aurora { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+  .aurora .blob { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .35; }
+  .blob.b1 { width: 55vw; height: 55vw; left: -18vw; top: -25vw; background: radial-gradient(circle, #2b4bd8 0%, transparent 65%); animation: drift1 26s ease-in-out infinite alternate; }
+  .blob.b2 { width: 46vw; height: 46vw; right: -14vw; top: -8vw;  background: radial-gradient(circle, #7b2bd8 0%, transparent 65%); animation: drift2 32s ease-in-out infinite alternate; }
+  .blob.b3 { width: 40vw; height: 40vw; left: 30vw; bottom: -24vw; background: radial-gradient(circle, #0e7a63 0%, transparent 65%); animation: drift3 38s ease-in-out infinite alternate; }
+  @keyframes drift1 { to { transform: translate(9vw, 7vh) scale(1.12); } }
+  @keyframes drift2 { to { transform: translate(-7vw, 9vh) scale(0.92); } }
+  @keyframes drift3 { to { transform: translate(6vw, -8vh) scale(1.08); } }
+  .grain { position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: .5; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.035 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E"); }
+
+  /* ---------- app shell ---------- */
+  #app { position: relative; z-index: 2; height: 100vh; display: grid; grid-template-rows: 64px 1fr; }
+
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 0 26px;
+    border-bottom: 1px solid var(--stroke);
+    background: rgba(5,6,11,0.55);
+    backdrop-filter: blur(18px);
+  }
+  .brand { display: flex; align-items: center; gap: 11px; }
+  .brand .mark {
+    width: 30px; height: 30px; border-radius: 10px; position: relative;
+    background: conic-gradient(from 210deg, var(--a1), var(--a2), var(--a3), var(--a1));
+    box-shadow: 0 0 22px rgba(124,156,255,0.45);
+  }
+  .brand .mark::after { content:""; position:absolute; inset:3px; border-radius:8px; background: var(--bg-0); }
+  .brand .mark::before { content:""; position:absolute; inset:9px; border-radius:50%; background: linear-gradient(135deg, var(--a1), var(--a2)); z-index:1; box-shadow: 0 0 10px rgba(201,139,255,.8); }
+  .brand h1 { font-size: 17px; font-weight: 700; letter-spacing: .2px; }
+  .brand h1 span { font-weight: 300; color: var(--dim); }
+  .conn {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 11px; color: var(--dim);
+    border: 1px solid var(--stroke); border-radius: 999px; padding: 7px 14px;
+    background: var(--glass);
+  }
+  .conn .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+  .conn.live .pulse { background: var(--ok); box-shadow: 0 0 10px var(--ok); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  .badge-r {
+    margin-left: auto; font-size: 10.5px; letter-spacing: 1.6px; text-transform: uppercase;
+    color: var(--faint); border: 1px dashed var(--stroke); border-radius: 999px; padding: 7px 14px;
+  }
+
+  /* ---------- workspace: chat + docked canvas ---------- */
+  #workspace {
+    display: grid; grid-template-columns: minmax(420px, 5fr) 6fr;
+    min-height: 0;
+  }
+  #chatCol { display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--stroke); min-height: 0; }
+  #dockCol { position: relative; min-height: 0; display: flex; flex-direction: column; }
+  #dockCol .dock-tag {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 5;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 1.4px; color: var(--faint);
+    border: 1px solid var(--stroke); background: rgba(5,6,11,.7); border-radius: 999px; padding: 5px 11px;
+    backdrop-filter: blur(8px);
+  }
+  @media (max-width: 980px) {
+    #workspace { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+    #chatCol { border-right: 0; border-bottom: 1px solid var(--stroke); }
+    #dockCol { height: 46vh; }
+  }
+  /* ---------- mobile (phone-width) ---------- */
+  @media (max-width: 640px) {
+    header { padding: 12px 16px; }
+    .badge-r { display: none; }
+    #workspace { grid-template-columns: 1fr; grid-template-rows: auto minmax(320px, 46vh); }
+    #chatCol { border-right: 0; border-bottom: 1px solid var(--stroke); }
+    #dockCol { height: auto; }
+    #stream { padding: 18px 16px 10px; }
+    #hero h2 { font-size: 26px; }
+    #hero p { font-size: 12.5px; }
+    .hero-orb { width: 92px; height: 92px; }
+    #composer { padding: 12px 14px 16px; }
+    .composer-frame { min-height: 48px; padding: 4px 6px 4px 14px; gap: 9px; border-radius: 16px; }
+    #input { font-size: 13.5px; }
+    #send { padding: 0 16px; font-size: 12.5px; }
+    #canvasHost, #dockEmpty { margin: 14px 12px; }
+    #dockCol .dock-tag { position: static; align-self: flex-start; margin: 10px 0 0 14px; transform: none; }
+    .sugg button { font-size: 12px; padding: 8px 12px; }
+  }
+
+  /* ---------- chat column ---------- */
+  #stream { flex: 1; overflow-y: auto; padding: 28px 26px 10px; display: flex; flex-direction: column; gap: 18px; min-height: 0; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.14) transparent; }
+  #stream::-webkit-scrollbar { width: 6px; } #stream::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 3px; }
+
+  /* hero empty state */
+  #hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 20px; padding: 0 12px; }
+  #hero.hidden, .hidden { display: none !important; }
+  .hero-orb {
+    width: 128px; height: 128px; border-radius: 50%; position: relative;
+    background: conic-gradient(from 0deg, var(--a1), var(--a2), var(--a3), var(--a4), var(--a1));
+    animation: spin 9s linear infinite;
+    box-shadow: 0 0 90px rgba(124,156,255,.4), 0 0 160px rgba(201,139,255,.22);
+  }
+  .hero-orb::after { content:""; position:absolute; inset:12px; border-radius:50%; background: radial-gradient(circle at 32% 28%, #17203c, #07080f 70%); }
+  .hero-orb::before { content:""; position:absolute; inset: 30px; border-radius:50%; background: linear-gradient(135deg, var(--a1), var(--a2)); z-index:1; filter: blur(2px); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #hero h2 { font-size: 30px; font-weight: 700; line-height: 1.2; letter-spacing: -.4px; }
+  #hero h2 em { font-style: normal; background: linear-gradient(90deg, var(--a1), var(--a2) 55%, var(--a3)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #hero p { color: var(--dim); font-size: 14px; line-height: 1.65; max-width: 440px; font-weight: 300; }
+  .hero-kbd { display: flex; gap: 8px; align-items: center; font-family: var(--mono); font-size: 10.5px; color: var(--faint); }
+  .hero-kbd span { border: 1px solid var(--stroke); border-radius: 6px; padding: 3px 8px; background: var(--glass); }
+
+  .sugg { display: flex; gap: 8px; flex-wrap: wrap; padding: 2px 0 6px; }
+  .sugg button {
+    font-family: var(--font); font-size: 12px; color: var(--ink);
+    background: var(--glass); border: 1px solid var(--stroke); border-radius: 999px;
+    padding: 9px 16px; cursor: pointer; transition: all .18s ease;
+  }
+  .sugg button:hover { border-color: rgba(124,156,255,.55); background: var(--glass-strong); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(124,156,255,.12); }
+
+  /* messages */
+  .msg { display: flex; gap: 11px; align-items: flex-start; animation: rise .4s cubic-bezier(.2,.8,.2,1) both; max-width: 100%; }
   .msg.user { justify-content: flex-end; }
-  .avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, #6ab7ff, #b28dff); flex: 0 0 auto; margin-top: 3px; }
+  @keyframes rise { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .avatar {
+    width: 30px; height: 30px; border-radius: 10px; flex: 0 0 auto; margin-top: 2px; position: relative;
+    background: conic-gradient(from 140deg, var(--a1), var(--a2), var(--a3), var(--a1));
+    box-shadow: 0 0 14px rgba(124,156,255,.4);
+  }
+  .avatar::after { content:""; position:absolute; inset:2.5px; border-radius:8px; background: var(--bg-0); }
+  .avatar::before { content:"m"; position:absolute; inset:0; display:grid; place-items: center; z-index:1; font-size: 12px; font-weight: 700; background: linear-gradient(120deg, var(--a1), var(--a2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .msg.user .avatar { display: none; }
   .bubble {
-    max-width: 78%;
-    background: var(--panel);
-    border: 1px solid var(--stroke);
-    padding: 10px 14px;
-    border-radius: 16px 16px 16px 6px;
-    font-size: 13.5px; line-height: 1.55;
+    max-width: 86%;
+    background: var(--glass); border: 1px solid var(--stroke);
+    padding: 12px 15px; border-radius: 4px var(--radius) var(--radius) var(--radius);
+    font-size: 13.5px; line-height: 1.6; font-weight: 300;
   }
   .msg.user .bubble {
-    border-radius: 16px 16px 6px 16px;
-    background: linear-gradient(135deg, rgba(106,183,255,0.20), rgba(178,141,255,0.16));
+    border-radius: var(--radius) 4px var(--radius) var(--radius);
+    background: linear-gradient(135deg, rgba(124,156,255,.24), rgba(201,139,255,.18));
+    border-color: rgba(124,156,255,.3); font-weight: 400;
   }
-  @keyframes slide { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .bubble b { font-weight: 600; }
+  .bubble h4 { font-size: 13px; font-weight: 600; margin: 10px 0 4px; color: var(--a1); }
+  .bubble h4:first-child { margin-top: 0; }
+  .bubble code { font-family: var(--mono); font-size: 11.5px; background: rgba(255,255,255,.08); padding: 1px 5px; border-radius: 5px; }
 
-  #canvasHost {
-    width: 100%;
-    min-height: 340px;
-    border-radius: 20px;
-    border: 1px solid var(--stroke);
-    overflow: hidden;
-    background: rgba(11,13,18,0.6);
-    display: none;
+  .tools-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; }
+  .tool-chip {
+    font-family: var(--mono); font-size: 10px; color: var(--a3);
+    border: 1px solid rgba(103,232,195,.25); background: rgba(103,232,195,.07);
+    padding: 3px 9px; border-radius: 999px; display: flex; align-items: center; gap: 5px;
+    animation: rise .3s ease both;
   }
-  #canvasHost iframe { width: 100%; height: 380px; border: 0; display: block; }
-  #canvasHost.show { display: block; animation: slide .4s ease both; }
+  .tool-chip i { width: 5px; height: 5px; border-radius: 50%; background: var(--a3); }
 
-  #composer {
-    display: flex; gap: 10px; padding: 16px 0 24px;
-    position: sticky; bottom: 0;
-    background: linear-gradient(180deg, transparent, rgba(7,9,13,0.9) 40%);
-  }
-  #composer input {
-    flex: 1; background: var(--panel); border: 1px solid var(--stroke); border-radius: 14px;
-    padding: 13px 16px; color: var(--ink); font-size: 14px; outline: none;
-  }
-  #composer input::placeholder { color: var(--dim); }
-  #composer input:focus { border-color: rgba(106,183,255,0.5); box-shadow: 0 0 0 3px rgba(106,183,255,0.10); }
-  #composer button {
-    background: linear-gradient(135deg, #6ab7ff, #b28dff);
-    border: 0; color: #07090d; font-weight: 700; padding: 0 20px; border-radius: 14px; cursor: pointer;
-    font-size: 14px; transition: transform .15s;
-  }
-  #composer button:hover { transform: translateY(-1px); }
-  #composer button:disabled { opacity: 0.45; cursor: not-allowed; }
+  /* thinking indicator */
+  .thinking { display: flex; gap: 11px; align-items: center; }
+  .thinking .dots { display: flex; gap: 4px; padding: 12px 15px; background: var(--glass); border: 1px solid var(--stroke); border-radius: 4px var(--radius) var(--radius) var(--radius); }
+  .thinking .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--a1); animation: bounce 1.2s infinite; }
+  .thinking .dots i:nth-child(2) { animation-delay: .15s; background: var(--a2); }
+  .thinking .dots i:nth-child(3) { animation-delay: .3s; background: var(--a3); }
+  @keyframes bounce { 0%,60%,100% { transform: none; opacity:.4; } 30% { transform: translateY(-5px); opacity: 1; } }
+  .thinking .lbl { font-family: var(--mono); font-size: 10.5px; color: var(--faint); align-self: center; }
 
-  .hint { color: var(--dim); font-size: 11.5px; padding: 8px 4px 0; text-align:center; letter-spacing: 0.2px; }
-  .sugg { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; padding: 0 0 4px; }
-  .sugg button {
-    font-size: 11.5px; color: var(--ink); background: var(--panel); border: 1px solid var(--stroke);
-    border-radius: 999px; padding: 6px 13px; cursor: pointer;
+  /* composer */
+  #composer { padding: 16px 26px 20px; display: flex; flex-direction: column; gap: 10px; background: linear-gradient(180deg, transparent, rgba(5,6,11,.85) 45%); }
+  .composer-row { display: flex; gap: 10px; }
+  .composer-frame {
+    flex: 1; display: flex; align-items: center; gap: 12px;
+    background: var(--glass); border: 1px solid var(--stroke); border-radius: 18px;
+    padding: 6px 8px 6px 18px; min-height: 52px; transition: all .2s ease;
   }
-  .sugg button:hover { border-color: rgba(106,183,255,0.5); }
+  .composer-frame:focus-within { border-color: rgba(124,156,255,.55); box-shadow: 0 0 0 4px rgba(124,156,255,.09); background: var(--glass-strong); }
+  .composer-frame > svg { flex: 0 0 auto; opacity: .55; }
+  #input { flex: 1; min-width: 0; background: none; border: 0; color: var(--ink); font-size: 14.5px; font-family: var(--font); outline: none; padding: 12px 4px; line-height: 1.4; }
+  #input::placeholder { color: var(--faint); }
+  #mic {
+    flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%; cursor: pointer;
+    border: 1px solid var(--stroke); background: var(--glass); color: var(--dim);
+    display: grid; place-items: center; transition: all .15s ease;
+  }
+  #mic:hover { border-color: rgba(103,232,195,.45); color: var(--a3); }
+  #mic.listening { border-color: var(--a3); color: var(--a3); box-shadow: 0 0 0 4px rgba(103,232,195,.12); animation: micPulse 1.4s infinite; }
+  #mic[disabled] { opacity: .35; cursor: not-allowed; }
+  @keyframes micPulse { 0%,100% { box-shadow: 0 0 0 3px rgba(103,232,195,.10); } 50% { box-shadow: 0 0 0 7px rgba(103,232,195,.22); } }
+  #send {
+    flex: 0 0 auto; border: 0; cursor: pointer; border-radius: 13px; padding: 0 24px; height: 38px;
+    background: linear-gradient(135deg, var(--a1), var(--a2)); color: #06070c;
+    font-family: var(--font); font-weight: 700; font-size: 13.5px; letter-spacing: .3px;
+    transition: transform .15s ease, box-shadow .15s ease;
+    box-shadow: 0 4px 18px rgba(124,156,255,.3);
+  }
+  #send:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(124,156,255,.45); }
+  #send:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+  .composer-meta { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; color: var(--faint); letter-spacing: .4px; }
+  .composer-meta b { color: var(--dim); font-weight: 500; }
+
+  /* ---------- docked canvas ---------- */
+  #canvasHost { flex: 1; margin: 18px 22px 22px; min-height: 0; display: none; position: relative; }
+  #canvasHost.show { display: flex; }
+  #canvasHost .frame-glow { position: absolute; inset: -1px; border-radius: 24px; background: conic-gradient(from 180deg, rgba(124,156,255,.35), rgba(201,139,255,.28), rgba(103,232,195,.3), rgba(124,156,255,.35)); filter: blur(14px); z-index: 0; animation: spin 14s linear infinite; }
+  #canvasFrame { position: relative; z-index: 1; flex: 1; width: 100%; height: 100%; border: 1px solid var(--stroke-bright); border-radius: 22px; background: #080a12; box-shadow: 0 24px 80px rgba(0,0,0,.55); }
+  #dockEmpty {
+    flex: 1; margin: 18px 22px 22px; border: 1px dashed var(--stroke); border-radius: 22px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; color: var(--faint);
+    background: linear-gradient(160deg, rgba(255,255,255,.025), transparent);
+  }
+  #dockEmpty .big { font-size: 34px; filter: saturate(.8); opacity: .85; }
+  #dockEmpty p { font-size: 12.5px; line-height: 1.7; max-width: 320px; font-weight: 300; }
+  #dockEmpty .mono { font-family: var(--mono); font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; }
 </style>
 </head>
 <body>
-<header>
-  <h1>Meridian</h1>
-  <div class="badge">simulated Alexa+ client</div>
-</header>
-<main>
-  <div id="suggestions" class="sugg">
-    <button data-say="I'm flying to Taipei next Wednesday to meet Nova Robotics, I have a demo report due Thursday and my dad's birthday is this weekend and I haven't booked any dinner yet. Help me make sense of this week."> Business trip + deadline + Dad's birthday</button>
-    <button data-say="I signed up for a half-marathon in 6 weeks and I still eat like rubbish, plan my evenings between training, meals and work."> Health + work balance</button>
-    <button data-say="I keep forgetting to follow up with Unknown Labs and I owe my landlord the deposit by Friday. Add reminders and organize my week."> Follow-ups + rent deadline</button>
+<div class="aurora"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+<div class="grain"></div>
+
+<div id="app">
+  <header>
+    <div class="brand"><div class="mark"></div><h1>Meridian <span>/ Alexa+</span></h1></div>
+    <div class="conn" id="conn"><span class="pulse"></span><span id="connTxt">connecting…</span></div>
+    <div class="badge-r">simulated alexa+ client · mcp 2025-11-25</div>
+  </header>
+
+  <div id="workspace">
+    <!-- ============ chat ============ -->
+    <div id="chatCol">
+      <div id="stream">
+        <div id="hero">
+          <div class="hero-orb"></div>
+          <h2>Speak the chaos.<br/><em>Watch the plan assemble.</em></h2>
+          <p>Meridian is an agentic chief-of-staff living behind MCP. Dump a messy week in one sentence — it orchestrates schedule blocks live on the canvas while you watch, and re-balances when you drag anything.</p>
+          <div class="hero-kbd"><span>MCP</span><span>Streamable HTTP</span><span>SSE push</span><span> Apps</span></div>
+        </div>
+      </div>
+      <div id="composer">
+        <div class="composer-row">
+          <div class="composer-frame">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8b93ad" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+            <input id="input" placeholder="“Flying to Taipei Wednesday, report due Thursday, dad's birthday this weekend…”" autocomplete="off" />
+            <button id="mic" title="Voice input (speech-to-text)" aria-label="Voice input">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="2.5" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3.5"/></svg>
+            </button>
+            <button id="send">Send</button>
+          </div>
+        </div>
+        <div class="composer-meta">
+          <span>try a scenario →</span>
+          <span><b id="statTools">0</b> tool calls · <b id="statPushes">0</b> pushed notifications</span>
+        </div>
+        <div class="sugg" id="suggestions">
+          <button data-say="I'm flying to Taipei next Wednesday to meet Nova Robotics, I have a demo report due Thursday and my dad's birthday is this weekend and I haven't booked any dinner yet. Help me make sense of this week.">✈️ Trip + deadline + Dad's birthday</button>
+          <button data-say="I signed up for a half-marathon in 6 weeks and I still eat like rubbish, plan my evenings between training, meals and work.">🏃 Health × work balance</button>
+          <button data-say="I keep forgetting to follow up with Unknown Labs and I owe my landlord the deposit by Friday. Add reminders and organize my week.">📬 Follow-ups + rent deadline</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ docked canvas ============ -->
+    <div id="dockCol">
+      <div class="dock-tag">mcp app · ui://meridian/canvas.html</div>
+      <div id="dockEmpty">
+        <div class="big">🌌</div>
+        <div class="mono">mcp app canvas</div>
+        <p>The interactive two-day canvas rendered by the Meridian MCP server appears here — streamed as a <b>ui:// resource</b> and driven live over SSE as the agent plans.</p>
+      </div>
+      <div id="canvasHost">
+        <div class="frame-glow"></div>
+        <iframe id="canvasFrame" title="Meridian day canvas"></iframe>
+      </div>
+    </div>
   </div>
-  <div id="stream"></div>
-  <div id="canvasHost"><iframe id="canvasFrame" title="Meridian day canvas"></iframe></div>
-  <div id="composer">
-    <input id="input" placeholder="Say something messy - Meridian makes sense of it..." autocomplete="off" />
-    <button id="send">Send</button>
-  </div>
-  <div class="hint">[ conversation - MCP spec 2025-11-25 - Streamable HTTP - server-push notifications ]</div>
-</main>
+</div>
+
 <script type="module">
-  const MCP_URL = "http://localhost:3001/mcp";
+  // MCP server endpoint. Default: localhost:3001. Override with ?mcp=https://... —
+  // lets the deployed simulator point at a hosted Meridian server (see README).
+  const MCP_URL = new URLSearchParams(location.search).get("mcp") || "http://localhost:3001/mcp";
   let sessionId = null;
   let canvasLoaded = false;   // set true on canvas 'meridian:ready'
-  let rpcId = 100;            // intake counter for JSON-RPC integer ids
+  let rpcId = 100;            // JSON-RPC ids must be integers (floats parse-error on some transports)
+  let toolCalls = 0, pushes = 0;
   const stream = document.getElementById("stream");
   const input = document.getElementById("input");
   const sendBtn = document.getElementById("send");
   const canvasHost = document.getElementById("canvasHost");
   const canvasFrame = document.getElementById("canvasFrame");
+  const dockEmpty = document.getElementById("dockEmpty");
+  const conn = document.getElementById("conn");
+  const connTxt = document.getElementById("connTxt");
+
+  const setConn = (cls, txt) => { conn.className = "conn " + cls; connTxt.textContent = txt; };
+
+  // --- voice input (Web Speech API, falls back to AssemblyAI note) ---
+  const micBtn = document.getElementById("mic");
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recog = null, listening = false;
+  if (SpeechRec) {
+    recog = new SpeechRec();
+    recog.lang = navigator.language || "en-US"; // multilingual by default (follows browser locale)
+    recog.interimResults = false; recog.maxAlternatives = 1;
+    recog.onstart = () => { listening = true; micBtn.classList.add("listening"); input.placeholder = "Listening… speak your messy week…"; };
+    recog.onresult = (e) => { const t = e.results[0][0].transcript; if (t) { input.value = t; input.focus(); } };
+    recog.onerror = () => {};
+    recog.onend = () => { listening = false; micBtn.classList.remove("listening"); input.placeholder = "“Flying to Taipei Wednesday, report due Thursday, dad's birthday this weekend…”"; };
+    micBtn.onclick = () => { if (listening) { recog.stop(); } else { try { recog.start(); } catch {} } };
+  } else {
+    micBtn.title = "SpeechRecognition unsupported in this browser — Chrome/Edge recommended (or wire AssemblyAI /v1/speech-to-text for server-side STT)";
+    micBtn.onclick = () => { input.placeholder = "Voice: use Chrome/Edge for built-in STT, or self-host AssemblyAI — see README"; };
+  }
+
+  const bumpStats = () => {
+    document.getElementById("statTools").textContent = toolCalls;
+    document.getElementById("statPushes").textContent = pushes;
+  };
 
   // --- MCP client over Streamable HTTP ---
   async function mcpSend(body, opts = {}) {
@@ -142,8 +372,7 @@
     if (!opts.empty && ct.includes("application/json")) return (await res.json());
     if (ct.includes("text/event-stream")) {
       const text = await res.text();
-      const parts = text.split("\n\n").filter(Boolean);
-      for (const chunk of parts) {
+      for (const chunk of text.split("\n\n").filter(Boolean)) {
         if (chunk.startsWith("data:")) return JSON.parse(chunk.slice(5));
       }
       return { result: null };
@@ -152,6 +381,7 @@
   }
 
   async function initMcp() {
+    setConn("", "handshake…");
     const res = await mcpSend({
       jsonrpc: "2.0", id: 1, method: "initialize",
       params: {
@@ -161,8 +391,9 @@
       },
     });
     await mcpSend({ jsonrpc: "2.0", method: "notifications/initialized" }, { empty: true });
-    await openStream();
+    openStream(); // fire-and-forget: fetchSse() never resolves while the push stream stays open
     await loadCanvas();
+    setConn("live", `mcp live · ${(res?.result?.serverInfo?.name ?? "server")}@${res?.result?.protocolVersion ?? ""}`);
     return res;
   }
 
@@ -196,7 +427,7 @@
             const payload = line.slice(5).trim();
             try {
               const j = JSON.parse(payload);
-              if (j?.params?.data) routePush(JSON.parse(j.params.data));
+              if (j?.params?.data) { pushes++; bumpStats(); routePush(JSON.parse(j.params.data)); }
             } catch {}
           }
         }
@@ -205,16 +436,16 @@
   }
 
   function routePush(p) {
-    bubbleCanvas(p);
+    postToCanvas(p);
     if (p.type === "proactive") {
-      addMsg("meridian", `[ALARM] ${p.message}`);
-    } else if (p.type === "assistant_text") {
-      addMsg("meridian", p.text);
+      addMsg("meridian", `⏰ **Proactive nudge (server push):** ${p.text ?? p.message ?? ""}`);
+      hideThinking();
     }
+    // assistant_text bubbles are suppressed here: the final tool result is the full reply.
   }
 
   let canvasMsgQueue = [];
-  function bubbleCanvas(payload) { canvasMsgQueue.push(payload); flushCanvas(); }
+  function postToCanvas(payload) { canvasMsgQueue.push(payload); flushCanvas(); }
   function flushCanvas() {
     if (!canvasFrame.contentWindow) return;
     for (const p of canvasMsgQueue) {
@@ -225,6 +456,8 @@
   window.addEventListener("message", (ev) => {
     if (ev.data?.type === "meridian:ready" && !canvasLoaded) {
       canvasLoaded = true;
+      dockEmpty.classList.add("hidden");
+      canvasHost.classList.add("show");
       flushCanvas();
     } else if (ev.data?.type === "meridian:drag") {
       handleDrag(ev.data.payload);
@@ -237,19 +470,27 @@
     const html = decodeBlob(contents[0]);
     if (html) {
       canvasFrame.srcdoc = html;
-      canvasHost.classList.add("show");
+      // 'show' happens on meridian:ready (postMessage handshake), not here.
     }
   }
 
   function decodeBlob(content) {
     if (content?.blob) {
-      try { return atob(content.blob); } catch { return ""; }
+      // Decoder must be binary-safe AND utf-8-correct: atob alone mangles multi-byte
+      // characters (e.g. "·" -> "Â"). Decode bytes -> TextDecoder for proper UTF-8.
+      try {
+        const bin = atob(content.blob);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new TextDecoder("utf-8").decode(bytes);
+      } catch { return ""; }
     }
     if (content?.text) return content.text;
     return "";
   }
 
   async function callTool(name, args) {
+    toolCalls++; bumpStats();
     const res = await mcpSend({
       jsonrpc: "2.0", id: rpcId++, method: "tools/call",
       params: { name, arguments: args },
@@ -257,41 +498,92 @@
     return res?.result;
   }
 
-  function addMsg(who, text) {
-    const row = document.createElement("div");
-    row.className = `msg ${who}`;
-    const av = document.createElement("div");
-    av.className = "avatar";
-    const b = document.createElement("div");
-    b.className = "bubble";
-    b.innerHTML = escapeHtml(text).replace(/\n/g, "<br/>");
-    if (who === "user") { row.appendChild(b); }
-    else { row.appendChild(av); row.appendChild(b); }
-    stream.appendChild(row);
-    window.scrollTo(0, document.body.scrollHeight);
+  // --- markdown-lite: headings, bold, code, lists ---
+  function renderRich(s) {
+    const esc = escapeHtml(s);
+    return esc
+      .replace(/^### (.*)$/gm, "<h4>$1</h4>")
+      .replace(/^## (.*)$/gm, "<h4>$1</h4>")
+      .replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
+      .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+      .replace(/^\s*[*-] (.*)$/gm, "• $1")
+      .replace(/\n/g, "<br/>");
   }
 
-  function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s||""; return d.innerHTML; }
+  function addMsg(who, text, opts = {}) {
+    const hero = document.getElementById("hero");
+    if (hero) hero.classList.add("hidden");
+    const row = document.createElement("div");
+    row.className = `msg ${who}`;
+    if (who === "user") {
+      const b = document.createElement("div");
+      b.className = "bubble";
+      b.innerHTML = renderRich(text);
+      row.appendChild(b);
+    } else {
+      const av = document.createElement("div");
+      av.className = "avatar";
+      const wrap = document.createElement("div");
+      const b = document.createElement("div");
+      b.className = "bubble";
+      b.innerHTML = renderRich(text);
+      wrap.appendChild(b);
+      if (opts.tools?.length) {
+        const tr = document.createElement("div");
+        tr.className = "tools-row";
+        for (const t of opts.tools) {
+          const c = document.createElement("span");
+          c.className = "tool-chip";
+          c.innerHTML = `<i></i>${escapeHtml(t)}`;
+          tr.appendChild(c);
+        }
+        wrap.appendChild(tr);
+      }
+      row.appendChild(av); row.appendChild(wrap);
+    }
+    stream.appendChild(row);
+    stream.scrollTop = stream.scrollHeight;
+    return row;
+  }
+
+  let thinkingEl = null;
+  function showThinking() {
+    hideThinking();
+    thinkingEl = document.createElement("div");
+    thinkingEl.className = "thinking";
+    thinkingEl.innerHTML = `<div class="dots"><i></i><i></i><i></i></div><div class="lbl">agent orchestrating over mcp…</div>`;
+    stream.appendChild(thinkingEl);
+    stream.scrollTop = stream.scrollHeight;
+  }
+  function hideThinking() { thinkingEl?.remove(); thinkingEl = null; }
+
+  function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
 
   let busy = false;
   async function handleSend(text) {
     if (!text.trim() || busy) return;
     busy = true; sendBtn.disabled = true;
     addMsg("user", text);
+    showThinking();
     try {
       const res = await callTool("meridian_chat", { message: text });
+      hideThinking();
       const txt = res?.content?.[0]?.text || "";
       if (txt) addMsg("meridian", txt);
     } catch (e) {
-      addMsg("meridian", `[WARN] ${e.message}`);
+      hideThinking();
+      addMsg("meridian", `⚠️ ${e.message}`);
     }
     busy = false; sendBtn.disabled = false;
   }
 
   async function handleDrag({ id, day, start }) {
     try {
+      toolCalls++; bumpStats();
+      showThinking();
       await callTool("reprioritize", { draggedId: id, newDay: day, newStart: start });
-    } catch (e) { console.warn("drag failed", e); }
+      hideThinking();
+    } catch (e) { hideThinking(); console.warn("drag failed", e); }
   }
 
   document.getElementById("send").addEventListener("click", () => handleSend(input.value));
@@ -301,7 +593,8 @@
   });
 
   initMcp().catch((e) => {
-    addMsg("meridian", `[WARN] Could not reach MCP server at ${MCP_URL} - ${e.message}`);
+    setConn("", "offline");
+    addMsg("meridian", `⚠️ Could not reach MCP server at ${MCP_URL} — ${e.message}`);
   });
 </script>
 </body>

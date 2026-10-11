@@ -58,14 +58,17 @@ export function createToolContext({ sessionId, sessions, tryPush }) {
     async search_web({ query }) {
       const key = process.env.TAVILY_API_KEY;
       if (!key) return { note: "TAVILY_API_KEY not set; web search disabled" };
+      // include_results_answer gives Tavily's own synthesized answer; topic:general keeps it fast.
+      // (Queries may be in any language - the LLM writes the query in the user's language.)
       const res = await fetch("https://api.tavily.com/search", {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
-        body: JSON.stringify({ query, max_results: 3 }),
+        body: JSON.stringify({ query, max_results: 3, include_answer: true }),
       });
       if (!res.ok) return { error: `tavily ${res.status}` };
       const data = await res.json();
       return {
+        answer: typeof data.answer === "string" ? data.answer.slice(0, 400) : undefined,
         results: (data.results || []).map((r) => ({ title: r.title, url: r.url, snippet: r.content?.slice(0, 300) })),
       };
     },

@@ -19,6 +19,20 @@ import { createToolContext, toolDeclarations, getMcpToolShapes, createAgentRoute
 import { agentLoop } from "./agent.js";
 import { log } from "./util.js";
 
+// Load .env from the workspace root (no dotenv dep: minimal key=value parsing).
+import { readFileSync } from "node:fs";
+for (const envPath of [new URL("../../../.env", import.meta.url), new URL("../.env", import.meta.url)]) {
+  try {
+    for (const line of readFileSync(envPath, "utf8").split(/\r?\n/)) {
+      const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+      if (m && process.env[m[1]] === undefined) {
+        process.env[m[1]] = m[2].replace(/^\"|\"$/g, "");
+      }
+    }
+    break; // first .env found wins
+  } catch {}
+}
+
 const PORT = Number(process.env.PORT) || 3001;
 const sessions = new Map();
 let canvasHtml = null; // loaded once, served as ui:// resource
@@ -70,7 +84,20 @@ const httpServer = createServer(async (req, res) => {
 });
 
 async function handlePost(req, res) {
-  const body = await readBody(req);
+  // Notifications carry no body; an empty-body POST must not be JSON-parsed.
+  const rawBody = await new Promise((resolve) => {
+    let d = "";
+    req.on("data", (c) => (d += c));
+    req.on("end", () => resolve(d));
+    req.on("error", () => resolve(""));
+  });
+  let body;
+  try {
+    body = rawBody ? JSON.parse(rawBody) : {};
+  } catch {
+    res.writeHead(400).end(JSON.stringify({ error: "bad JSON body" }));
+    return;
+  }
   const sidHeader = req.headers["mcp-session-id"];
   let entry = sidHeader ? sessions.get(sidHeader) : undefined;
 
@@ -166,7 +193,7 @@ function buildServer(sid) {
     "ui://meridian/canvas.html",
     { name: "Day canvas", description: "Interactive 2-day schedule canvas (MCP App UI)", mimeType: "text/html" },
     async () => ({
-      contents: [{ uri: "ui://meridian/canvas.html", mimeType: "text/html", blob: await loadCanvasHtml() }],
+      contents: [{ uri: "ui://meridian/canvas.html", mimeType: "text/html", blob: Buffer.from(await loadCanvasHtml(), "utf8").toString("base64") }],
     })
   );
 

@@ -37,22 +37,39 @@ Feedback on every tool, API, and SDK used, as required by the hackathon submissi
 
 **Would we build with it again?** Yes - MCP Apps is the most exciting part of the MCP ecosystem right now.
 
-## 3. Google Gemini (`@google/genai` 2.28.0, gemini-2.0-flash)
+## 3. Featherless AI (OpenAI-compatible inference, Llama-3.3-70B)
 
-**Used for:** the agentic planning brain - native function-calling loop over the shared tool declarations.
+**Used for:** the agentic planning brain - the primary provider behind our function-calling loop, via the OpenAI-compatible `/v1/chat/completions` endpoint with `tools` / `tool_calls`.
 
 **What worked well:**
-- Native tool-calling is reliable and fast on 2.0-flash; multi-step plans (time check -> search -> canvas write) worked without prompt gymnastics.
+- Genuinely OpenAI-compatible: the standard `tools` array + `tool_choice: "auto"` just worked on `unsloth/Llama-3.3-70B-Instruct` - multi-step plans (time check -> search -> canvas write) executed with zero prompt gymnastics.
+- HUGE model catalog (~22k models) with per-model pricing metadata exposed directly on `/v1/models`, so selecting by context length and class is a quick script, not docs spelunking.
+- Fast, and free credits let us iterate through dozens of full agent loops without quota anxiety.
+
+**What needs work:**
+- Model discovery is the weak spot: 22k ids with no capability tags (which support tool calling? which are instruct-tuned?). We picked by name heuristics and verified with a test call; a `capabilities` field on the model object would help a lot.
+- Gated vs open is in the list, but there is no documented permission-error shape - a failing gated call returns a bare error.
+
+**Onboarding:** excellent - key in, first `/v1/models` call in under a minute, working tool-calling completion in five.
+
+**Would we build with it again?** Yes - it is now our default provider.
+
+## 4. Google Gemini (`@google/genai` 2.28.0, gemini-3.8-flash)
+
+**Used for:** the automatic fallback brain - Gemini's native function-calling loop over the shared tool declarations, transparently used if the primary provider errors.
+
+**What worked well:**
+- Native tool-calling is reliable and fast on 3.8-flash; multi-step plans (time check -> search -> canvas write) worked without prompt gymnastics.
 
 **What needs work:**
 - Constructing the client with a missing key throws at import time in some setups; lazy init is safer for libraries.
 - Function-call results require the exact `functionResponse` part shape; a typed helper for building the convo array would reduce boilerplate.
 
-**Onboarding:** excellent - the AI Studio key flow is the fastest free start available.
+**Onboarding:** excellent - the AI Studio key flow is the fastest free start available. One wrinkle: older model IDs (`gemini-2.0-flash`, `gemini-2.5-flash`) return 404 for new keys; the error payload helpfully names the successor (`gemini-3.8-flash`), and we wish every API surfaced the replacement model that directly.
 
 **Would we build with it again?** Yes.
 
-## 4. Tavily Search API
+## 5. Tavily Search API
 
 **Used for:** the `search_web` tool (weather, factual lookups during planning).
 
