@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Meridian Day Canvas</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  /* ---------- tokens (shared DNA with simulator) ---------- */
+  :root {
+    --bg: #080a12;
+    --ink: #eef1fb;
+    --dim: #8b93ad;
+    --faint: #565e78;
+    --glass: rgba(255,255,255,0.045);
+    --stroke: rgba(255,255,255,0.09);
+    --a1: #7c9cff;
+    --a2: #c98bff;
+    --a3: #67e8c3;
+    --a4: #ffb37c;
+    --travel: #7c9cff;
+    --work: #ffb37c;
+    --family: #ff8fb8;
+    --health: #67e8c3;
+    --deposit: #c98bff;
+    --font: "Sora", ui-sans-serif, system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--font);
+    background:
+      radial-gradient(900px 420px at 78% -12%, rgba(124,156,255,0.13), transparent),
+      radial-gradient(760px 380px at 4% 108%, rgba(201,139,255,0.10), transparent),
+      var(--bg);
+    color: var(--ink);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* inner detail canvas keeps its own scroll subtle (mobile view) */
+  ::-webkit-scrollbar { width: 8px; } 
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.10); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.16); }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  /* ---------- top pipeline ---------- */
+  .top { display: flex; align-items: center; gap: 14px; padding: 13px 18px 8px; }
+  @media (max-width: 640px) {
+    .top { padding: 11px 12px 6px; }
+    .top h1 { font-size: 13px; }
+    .top .live { font-size: 9px; }
+    #pipeline { padding: 5px 12px 8px; }
+  }
+  .top h1 { font-size: 14.5px; font-weight: 600; letter-spacing: .2px; display: flex; align-items: center; gap: 9px; }
+  .crest {
+    width: 20px; height: 20px; border-radius: 7px; position: relative;
+    background: conic-gradient(from 210deg, var(--a1), var(--a2), var(--a3), var(--a1));
+    box-shadow: 0 0 12px rgba(124,156,255,.5);
+  }
+  .crest::after { content:""; position:absolute; inset:2px; border-radius:5px; background: var(--bg); }
+  .crest::before { content:""; position:absolute; inset:7px; border-radius:50%; background: linear-gradient(135deg, var(--a1), var(--a2)); z-index:1; }
+  .top .live { margin-left: auto; font-family: var(--mono); font-size: 9.5px; letter-spacing: 1.3px; color: var(--faint); text-transform: uppercase; display:flex; align-items:center; gap:6px; }
+  .top .live .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--a3); box-shadow: 0 0 8px var(--a3); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+  /* progress pipeline chips */
+  #pipeline { display: flex; gap: 7px; overflow-x: auto; padding: 6px 18px 10px; scrollbar-width: none; }
+  #pipeline::-webkit-scrollbar { display: none; }
+  .chip {
+    flex: 0 0 auto; position: relative;
+    font-family: var(--mono); font-size: 10px;
+    color: var(--faint);
+    border: 1px solid var(--stroke);
+    border-radius: 999px; padding: 5px 11px 5px 22px;
+    background: var(--glass);
+    animation: chipIn .4s cubic-bezier(.2,.8,.2,1) both;
+    white-space: nowrap;
+  }
+  .chip::before { content:""; position:absolute; left:9px; top:50%; transform: translateY(-50%); width:6px; height:6px; border-radius:50%; background: currentColor; }
+  .chip.plan    { color:#c98bff; border-color: rgba(201,139,255,.3); }
+  .chip.lookup  { color:#7c9cff; border-color: rgba(124,156,255,.3); }
+  .chip.compute { color:#ffb37c; border-color: rgba(255,179,124,.3); }
+  .chip.commit  { color:#67e8c3; border-color: rgba(103,232,195,.3); }
+  .chip.latest  { box-shadow: 0 0 14px rgba(124,156,255,.25); border-color: rgba(255,255,255,.3); }
+  @keyframes chipIn { from { transform: translateY(8px) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  /* ---------- lanes ---------- */
+  #lanes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 4px 18px 12px; position: relative; }
+  .lane {
+    position: relative;
+    border: 1px solid var(--stroke);
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.008));
+    padding: 14px 12px 14px 52px;
+    min-height: 330px;
+    overflow: hidden;
+    transition: border-color .25s ease, box-shadow .25s ease;
+  }
+  .lane.drop-target { border-color: rgba(124,156,255,.65); box-shadow: 0 0 0 1px rgba(124,156,255,.35), 0 0 30px rgba(124,156,255,.18) inset; }
+  .lane h2 {
+    font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 1.6px;
+    margin-bottom: 10px; font-weight: 600; display: flex; align-items: baseline; gap: 8px;
+  }
+  .lane h2 .date { font-family: var(--mono); font-size: 9.5px; color: var(--faint); letter-spacing: 1px; }
+  .rail { position: absolute; left: 52px; right: 12px; top: 46px; bottom: 14px; }
+  .hours { position: relative; height: 100%; }
+  .hourline { position: absolute; left: 0; right: 0; border-top: 1px solid rgba(255,255,255,.045); }
+  .hourlabel { position: absolute; left: -40px; transform: translateY(-50%); font-family: var(--mono); font-size: 9px; color: var(--faint); }
+
+  .block {
+    position: absolute; left: 0; right: 10px;
+    border-radius: 13px;
+    padding: 9px 11px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.13);
+    cursor: grab;
+    transition: transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s ease, filter .2s ease;
+    will-change: transform;
+    backdrop-filter: blur(6px);
+    user-select: none;
+    touch-action: none;
+  }
+  .block:hover { filter: brightness(1.15); }
+  .block.dragging { cursor: grabbing; z-index: 10; box-shadow: 0 18px 44px rgba(0,0,0,.6), 0 0 24px rgba(124,156,255,.25); transform: scale(1.045) rotate(.4deg); transition: none; }
+  .block::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 3px; background: currentColor; opacity: .9; }
+  .block .time { font-family: var(--mono); font-size: 9.5px; color: var(--dim); font-variant-numeric: tabular-nums; display: flex; justify-content: space-between; }
+  .block .t { font-weight: 600; font-size: 12.5px; margin-top: 2px; }
+  .block .n { font-size: 10.5px; color: var(--dim); margin-top: 3px; line-height: 1.4; }
+  .block.pop { animation: pop .5s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes pop { 0% { transform: translateY(16px) scale(.92); opacity: 0; filter: blur(3px); } 100% { transform: none; opacity: 1; filter: none; } }
+
+  .block.travel  { color: var(--travel);  border-color: rgba(124,156,255,.45); background: linear-gradient(100deg, rgba(124,156,255,.24), rgba(124,156,255,.07) 70%); }
+  .block.work    { color: var(--work);    border-color: rgba(255,179,124,.45); background: linear-gradient(100deg, rgba(255,179,124,.24), rgba(255,179,124,.07) 70%); }
+  .block.family  { color: var(--family);  border-color: rgba(255,143,184,.45); background: linear-gradient(100deg, rgba(255,143,184,.24), rgba(255,143,184,.07) 70%); }
+  .block.health  { color: var(--health);  border-color: rgba(103,232,195,.45); background: linear-gradient(100deg, rgba(103,232,195,.24), rgba(103,232,195,.07) 70%); }
+  .block.deposit { color: var(--deposit); border-color: rgba(201,139,255,.45); background: linear-gradient(100deg, rgba(201,139,255,.24), rgba(201,139,255,.07) 70%); }
+
+  .empty { color: var(--faint); font-size: 12px; padding: 26px 8px; text-align: center; line-height: 1.7; }
+  .empty .mono { font-family: var(--mono); font-size: 9.5px; letter-spacing: 1.3px; text-transform: uppercase; display: block; margin-bottom: 6px; color: var(--dim); }
+
+  /* ---------- footer ---------- */
+  footer { padding: 10px 18px 16px; font-size: 10.5px; color: var(--faint); display: flex; gap: 14px; align-items: center; font-family: var(--mono); }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 3px; margin-right: 5px; vertical-align: middle; }
+  #status { margin-left: auto; letter-spacing: .4px; }
+  #status.busy { color: var(--a1); }
+  #status.flash { animation: flash .7s ease; color: var(--a3); }
+  @keyframes flash { 0%,100% { color: var(--faint);} 50% { color: var(--a3); } }
+
+  /* rebalance banner */
+  #rebalance {
+    display: none; align-items: center; gap: 8px;
+    margin: 0 18px 8px; padding: 8px 13px;
+    border: 1px solid rgba(124,156,255,.35); border-radius: 12px;
+    background: rgba(124,156,255,.1);
+    font-family: var(--mono); font-size: 10px; color: var(--a1); letter-spacing: .5px;
+  }
+  #rebalance.on { display: flex; animation: chipIn .3s ease both; }
+  #rebalance .spin { width: 10px; height: 10px; border-radius: 50%; border: 2px solid rgba(124,156,255,.3); border-top-color: var(--a1); animation: rot .8s linear infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+
+  @media (max-width: 560px) { #lanes { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <h1><span class="crest"></span>Meridian Canvas</h1>
+    <div class="live"><span class="pulse"></span><span id="clock">--:--</span></div>
+  </div>
+
+  <div id="pipeline"></div>
+
+  <div id="rebalance"><span class="spin"></span><span id="rebalanceTxt">agent re-orchestrating your plan…</span></div>
+
+  <div id="lanes">
+    <section class="lane" data-day="today">
+      <h2>Today <span class="date" id="todayDate"></span></h2>
+      <div class="rail"><div class="hours" id="hoursToday"></div></div>
+      <div class="blocks" data-day="today"></div>
+    </section>
+    <section class="lane" data-day="tomorrow">
+      <h2>Tomorrow <span class="date" id="tomorrowDate"></span></h2>
+      <div class="rail"><div class="hours" id="hoursTomorrow"></div></div>
+      <div class="blocks" data-day="tomorrow"></div>
+    </section>
+  </div>
+
+  <footer>
+    <div class="legend">
+      <span><i style="background:var(--travel)"></i>Travel</span>
+      <span><i style="background:var(--work)"></i>Work</span>
+      <span><i style="background:var(--family)"></i>Family</span>
+      <span><i style="background:var(--health)"></i>Health</span>
+      <span><i style="background:var(--deposit)"></i>Deposit</span>
+    </div>
+    <div id="status">drift a block to re-plan</div>
+  </footer>
+</main>
+
+<script>
+  const TAG_COLORS = { travel:"var(--travel)", work:"var(--work)", family:"var(--family)", health:"var(--health)", deposit:"var(--deposit)" };
+  const DAY_HEIGHT = 280;          // 6:00 → 22:00 mapped across
+  const DAY_START_MIN = 6 * 60;
+  const DAY_END_MIN = 22 * 60;
+  const SPAN = DAY_END_MIN - DAY_START_MIN;
+  let blocks = [];                 // single source of truth for render (fix: canvas pushes now apply)
+  let latestChipIdx = -1;
+  const parentWindow = window.parent;
+
+  // ---- clock + lane dates ----
+  function tickClock() {
+    const d = new Date();
+    document.getElementById("clock").textContent =
+      String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
+    const fmt = (off) => d.toLocaleDateString("en-US", { weekday:"short", month:"short", day:"numeric" }).toUpperCase();
+    const tmw = new Date(Date.now() + 864e5);
+    document.getElementById("todayDate").textContent = "· " + fmt(0);
+    document.getElementById("tomorrowDate").textContent = "· " + tmw.toLocaleDateString("en-US", { weekday:"short", month:"short", day:"numeric" }).toUpperCase();
+  }
+  tickClock(); setInterval(tickClock, 30000);
+
+  // ---- hour grid ----
+  function buildHours(el) {
+    el.innerHTML = "";
+    for (let m = DAY_START_MIN; m <= DAY_END_MIN; m += 60) {
+      const line = document.createElement("div");
+      line.className = "hourline";
+      line.style.top = `${((m - DAY_START_MIN) / SPAN) * DAY_HEIGHT}px`;
+      const lbl = document.createElement("div");
+      lbl.className = "hourlabel";
+      lbl.style.top = `${((m - DAY_START_MIN) / SPAN) * DAY_HEIGHT}px`;
+      lbl.textContent = `${String(Math.floor(m / 60)).padStart(2, "0")}:00`;
+      el.appendChild(line); el.appendChild(lbl);
+    }
+  }
+  buildHours(document.getElementById("hoursToday"));
+  buildHours(document.getElementById("hoursTomorrow"));
+
+  // ---- pipeline chips ----
+  function chips(list) {
+    const wrap = document.getElementById("pipeline");
+    wrap.innerHTML = "";
+    for (let i = 0; i < list.length; i++) {
+      const c = list[i];
+      const el = document.createElement("div");
+      el.className = `chip ${c.kind || "plan"}${i === list.length - 1 ? " latest" : ""}`;
+      el.innerHTML = `${escapeHtml(c.step || "")}`;
+      wrap.appendChild(el);
+    }
+    wrap.scrollLeft = wrap.scrollWidth;
+  }
+
+  // ---- render blocks ----
+  function render() {
+    document.querySelectorAll(".lane .blocks").forEach((wrap) => {
+      wrap.innerHTML = "";
+      const day = wrap.dataset.day;
+      const list = blocks.filter(b => b.day === day).sort((a, b) => a.start.localeCompare(b.start));
+      if (!list.length) {
+        wrap.innerHTML = `<div class="empty"><span class="mono">${day}</span>waiting for Meridian to orchestrate…</div>`;
+        return;
+      }
+      for (const b of list) {
+        const el = document.createElement("div");
+        el.className = `block ${b.tag || "work"} pop`;
+        const y = timeToY(b.start);
+        const h = Math.max(38, Math.min(DAY_HEIGHT - 8, (b.dur / SPAN) * DAY_HEIGHT));
+        el.style.top = `${y}px`;
+        el.style.height = `${h}px`;
+        el.dataset.id = b.id;
+        el.innerHTML = `
+          <div class="time"><span>${b.start}</span><span>${b.dur}m</span></div>
+          <div class="t">${escapeHtml(b.title)}</div>
+          ${b.note ? `<div class="n">${escapeHtml(b.note)}</div>` : ""}
+        `;
+        makeDraggable(el, b);
+        wrap.appendChild(el);
+      }
+    });
+  }
+
+  function timeToY(start) {
+    const [h, m] = String(start).split(":").map(Number);
+    const min = Math.max(DAY_START_MIN, Math.min(DAY_END_MIN, h * 60 + m));
+    return ((min - DAY_START_MIN) / SPAN) * DAY_HEIGHT;
+  }
+
+  function yToTime(topPx) {
+    const min = DAY_START_MIN + (topPx / DAY_HEIGHT) * SPAN;
+    return Math.max(DAY_START_MIN, Math.min(DAY_END_MIN - 15, Math.round(min / 15) * 15));
+  }
+
+  // ---- drag with cross-lane detection + snap preview ----
+  function makeDraggable(el, block) {
+    el.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      el.setPointerCapture(e.pointerId);
+      const startX = e.clientX, startY = e.clientY;
+      const origTop = timeToY(block.start);
+      const laneEl = el.closest(".lane");
+      const laneW = laneEl.getBoundingClientRect().width;
+      el.classList.add("dragging");
+      let deltaTop = 0, deltaLeft = 0, hoveredLane = null;
+
+      const lanes = Array.from(document.querySelectorAll(".lane"));
+      const curIdx = lanes.findIndex(l => l.dataset.day === block.day);
+
+      const move = (me) => {
+        deltaTop = me.clientY - startY;
+        deltaLeft = me.clientX - startX;
+        el.style.transform = `translate(${deltaLeft}px, ${deltaTop}px)`;
+
+        // which lane are we hovering?
+        const idx = deltaLeft > laneW * 0.45 && curIdx === 0 ? 1 : deltaLeft < -laneW * 0.45 && curIdx === 1 ? 0 : curIdx;
+        if (idx !== curIdx && lanes[idx]) {
+          lanes[idx].classList.add("drop-target");
+          if (hoveredLane && hoveredLane !== lanes[idx]) hoveredLane.classList.remove("drop-target");
+          hoveredLane = lanes[idx];
+        } else if (hoveredLane) {
+          hoveredLane.classList.remove("drop-target");
+          hoveredLane = null;
+        }
+      };
+
+      const up = () => {
+        el.releasePointerCapture(e.pointerId);
+        el.classList.remove("dragging");
+        el.style.transform = "";
+        lanes.forEach(l => l.classList.remove("drop-target"));
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+
+        const idx = deltaLeft > laneW * 0.45 && curIdx === 0 ? 1 : deltaLeft < -laneW * 0.45 && curIdx === 1 ? 0 : curIdx;
+        const targetDay = lanes[idx].dataset.day;
+        const newMin = yToTime(origTop + deltaTop);
+        const ts = `${String(Math.floor(newMin / 60)).padStart(2, "0")}:${String(newMin % 60).padStart(2, "0")}`;
+
+        if (targetDay !== block.day || ts !== block.start) {
+          const rb = document.getElementById("rebalance");
+          rb.classList.add("on");
+          document.getElementById("status").textContent = "sent · reprioritize over mcp";
+          document.getElementById("status").className = "busy";
+          parentWindow.postMessage({
+            type: "meridian:drag",
+            payload: { id: block.id, day: targetDay, start: ts },
+          }, "*");
+        }
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+    });
+  }
+
+  // ---- message protocol (host <-> canvas) ----
+  window.addEventListener("message", (ev) => {
+    const msg = ev.data || {};
+    if (msg.type === "meridian:event") {
+      const p = msg.payload || {};
+      if (p.type === "progress") {
+        window.__chips = window.__chips || [];
+        window.__chips.push({ step: p.step, kind: p.kind });
+        chips(window.__chips);
+      } else if (p.type === "canvas") {
+        blocks = Array.isArray(p.blocks) ? p.blocks : [];   // FIX: previously never stored
+        render();
+        const s = document.getElementById("status");
+        s.textContent = "canvas synced";
+        s.className = "flash";
+        void s.offsetWidth;
+        document.getElementById("rebalance").classList.remove("on");
+      } else if (p.type === "assistant_text") {
+        const s = document.getElementById("status");
+        s.textContent = "meridian is speaking…";
+        s.className = "busy";
+      } else if (p.type === "proactive") {
+        statusProactive(p.text ?? p.message ?? "");
+      }
+    } else if (msg.type === "meridian:init") {
+      const s = document.getElementById("status");
+      s.textContent = "ready";
+      s.className = "";
+    }
+  });
+
+  function statusProactive(text) {
+    const s = document.getElementById("status");
+    s.textContent = "🔔 proactive push: " + (text || "").slice(0, 48);
+    s.className = "flash";
+  }
+
+  function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
+
+  parentWindow.postMessage({ type: "meridian:ready" }, "*");
+</script>
+</body>
+</html>

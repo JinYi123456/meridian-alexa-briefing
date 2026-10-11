@@ -34,7 +34,7 @@ We also wanted to build on the frontier of the MCP ecosystem: the new **MCP Apps
 
 ## What it does
 
-Meridian is a **self-hosted MCP server** (official spec `2025-11-25`, Streamable HTTP) with an agentic chief-of-staff brain. konuş One messy sentence — typed or **spoken** via the mic button — and the agent:
+Meridian is a **self-hosted MCP server** (official spec `2025-11-25`, Streamable HTTP) with an agentic chief-of-staff brain. One messy sentence — typed or **spoken** via the mic button — and the agent:
 
 - streams its steps live into the chat (`push_progress`) so you watch it think,
 - checks the real clock, searches the web (Tavily), and commits a concrete **two-day schedule** onto an interactive canvas,
@@ -98,7 +98,19 @@ JavaScript, Node.js, MCP, Model Context Protocol, MCP Apps, Streamable HTTP, SSE
 
 - **GitHub repo:** `https://github.com/JinYi123456/meridian-alexa-briefing`
 - **Demo video:** (YouTube/Vimeo URL after upload)
-- Optional live link: leave empty — rules say a live deploy is **not required** (judges test from repo + video). If you do deploy later, add it.
+- **Live demo URL:** see §4a (Vercel deployment — live now)
+
+---
+
+## 4a. Live deployment (Vercel)
+
+Paste this as an extra "Try it out" link and as the **Optional Project Testing Link**:
+
+```
+https://meridian-alexa.vercel.app
+```
+
+(It serves the simulated Alexa+ client; the MCP server runs as a serverless function at `/mcp`. API keys are set as encrypted Vercel env vars, never committed.)
 
 ---
 
@@ -131,19 +143,71 @@ JavaScript, Node.js, MCP, Model Context Protocol, MCP Apps, Streamable HTTP, SSE
 @modelcontextprotocol/sdk (self-hosted MCP server, spec 2025-11-25, Streamable HTTP + MCP Apps ui:// resource) · Featherless AI (primary LLM provider: OpenAI-compatible tool-calling, Llama-3.3-70B) · Google Gemini @google/genai (fallback provider: native function-calling) · Tavily (web-search tool) · Zod (tool input schemas) · Web Speech API (voice input) · plain Node http (transport server).
 ```
 
-**Q2 — What worked well?** → paste §"What worked well" bullets from `docs/product-feedback.md` (SDK transport exactness; Featherless drop-in OpenAI compat + 22k-model catalog; Gemini native FC; Tavily 5-minute integration).
-
-**Q3 — What needs work?** → paste §"What needs work" bullets (SDK silent capability gating; Featherless no capability tags on 22k models; Gemini model-ID retirement; rate-limit error bodies).
-
-**Q4 — Onboarding (zero→hello)?** → SDK: moderate (real-world HTTP wiring required reading transport source) · Featherless: excellent (key → working tool-call in 5 min) · Gemini: excellent key flow, 404 model-name wrinkle · Tavily: minutes.
-
-**Q5 — Build with them again?**
+**Q2 — What worked well?** (paste this block as-is)
 
 ```text
-Yes — MCP SDK (official and wire-correct; friction is discoverability), Featherless (now our default provider), Gemini (works, kept as fallback), Tavily (simple and clean).
+- MCP TypeScript SDK: the Streamable HTTP transport is wire-exact. Once wired, session IDs, 202-on-notification, DELETE teardown, and the standalone GET SSE stream all behaved per spec. registerTool + Zod gives real input validation for free, and notifications/message is exactly the right primitive for streaming agent progress into a live UI.
+- Featherless AI: genuinely OpenAI-compatible — the standard tools array + tool_choice:"auto" just worked on Llama-3.3-70B-Instruct; our multi-step plan (time check -> search -> canvas write) executed with zero prompt gymnastics. The /v1/models catalog (~22k models) exposes per-model pricing and context length, making model selection a quick script. Fast, and free credits let us iterate through dozens of full agent loops without quota anxiety.
+- Gemini (@google/genai): native tool-calling is reliable and fast on 3.8-flash; the multi-step loop worked without prompt tricks, and the AI Studio key flow is the fastest free start available.
+- Tavily: simple REST API, clean result shape, sensible free tier — integrated in minutes.
 ```
 
-**Friction log / feature requests:** point judges to `docs/product-feedback.md` in the repo (full table with severities + workarounds — this earns the bonus). Feature request example: *"MCP Apps: a reference host implementation + one canonical quickstart for server-app + custom host."*
+**Q3 — What needs work?** (paste this block as-is)
+
+```text
+- MCP SDK: capability gating is silent — notifications/message requires the logging capability to be declared, and without it the notification is silently dropped instead of erroring at registration time (cost us a full debugging cycle). Also, registerTool requires Zod shapes rather than raw JSON Schema; the error message says so but the docs don't lead with it.
+- Featherless: model discovery is the weak spot — 22k model IDs with no capability tags (which support tool calling? which are instruct-tuned?). We picked by name heuristics and verified with a test call; a capabilities field on the model object would help a lot. Gated models return a bare permission error with no documented error shape.
+- Gemini: older model IDs (gemini-2.0-flash, gemini-2.5-flash) return 404 for new keys; the error payload does helpfully name the successor (gemini-3.8-flash). Free-tier 429 quota exhaustion hit us mid-demo-take; per-key quota transparency would help.
+- Tavily: rate-limit error bodies could be more descriptive.
+```
+
+**Q4 — Onboarding (zero to hello world)?** (paste as-is)
+
+```text
+- Featherless: excellent — API key in, first /v1/models call in under a minute, first tool-calling chat completion in about five. Best onboarding of the four.
+- Gemini: excellent key flow via AI Studio, with one wrinkle: retired model IDs (2.0/2.5 flash) 404 for new keys.
+- Tavily: minutes — quickstart covers it.
+- MCP TypeScript SDK: moderate. The TypeScript quickstart is good, but real-world Streamable HTTP wiring (single endpoint, CORS preflight for browser clients, session header handling, logging capability) required reading transport source code. It would not have been a day-one integration without the SDK being open-source.
+```
+
+**Q5 — Would you build with these devices and services again?** (paste as-is)
+
+```text
+Yes. MCP SDK: yes — official and wire-correct; the friction is all in discoverability of finer requirements, and it's improving fast. Featherless: yes — it is now our default provider. Gemini: yes — kept wired as automatic fallback. Tavily: yes — simple and clean.
+```
+
+### [Optional] Feature Requests (paste as-is)
+
+```text
+1) MCP Apps: ship one canonical quickstart for "server app + custom host". Why it matters: our core UX (tool renders as an interactive canvas) depends on the MCP Apps pattern (SEP-1865), but the docs are spread across the extension site, the spec repo, and blog posts; a single page would cut hours for every builder. Priority: Important.
+
+2) MCP Apps: publish a reference host implementation beyond the basic example. Why it matters: there is no official host to test against, so our simulated Alexa+ client (iframe postMessage protocol) was written by reading the ext-apps source side-by-side with the spec. Priority: Important.
+
+3) MCP SDK: fail fast (or warn loudly) when sending a notification while the required capability is not declared. Why it matters: capability gating is currently silent, which cost us a debugging cycle and would silently break every builder's first push. Priority: Critical.
+
+4) MCP SDK: ship a CORS + session-header helper for HTTP-server transports. Why it matters: browser MCP clients need OPTIONS preflight handling and MCP-Session-Id exposure; every self-hosted server author rediscovers this by trial and error. Priority: Nice-to-have.
+
+5) Featherless: add a capabilities field (toolCalling: true/false, instruct: true/false) to the /v1/models objects. Why it matters: with 22k models, picking one without capability metadata is guesswork; it cost us a few test calls to find a function-calling-capable model. Priority: Important.
+
+6) Gemini API: keep retired model IDs returning the successor in the error payload (good!), and consider a grace period where retired IDs hard-redirect. Why it matters: gemini-2.0-flash returning 404 broke our first run until we read the error body carefully. Priority: Nice-to-have.
+```
+
+### [Optional] Friction Log (paste as-is, also shipped as docs/product-feedback.md in the repo)
+
+```text
+| # | Task attempted | Steps taken | Expected vs actual | Severity | Workaround used | Actionable suggestion |
+|---|---|---|---|---|---|---|
+| 1 | Stream server-initiated notifications over the GET stream | Declared sends; opened GET stream; watched frames | Expected notification frames; saw silence (only keep-alive comments) | High | Declared logging: {} capability in server constructor | Fail fast at notification() when the required capability is missing; log a one-line hint on connect |
+| 2 | Register tools with schemas | Passed raw JSON Schema objects to registerTool | Runtime error: "inputSchema must be a Zod schema or raw shape" | Medium | Converted all tool schemas to Zod raw shapes (single source of truth in tools.js) | Accept JSON Schema directly, or document the conversion path up front |
+| 3 | Browser simulator calling the server | POSTed from the simulator origin | Preflight rejected: no OPTIONS handling on the custom http transport | Medium | Added explicit OPTIONS handler + CORS headers exposing MCP-Session-Id | Ship a tiny CORS helper for HTTP-server transports |
+| 4 | Debugging the "silent" GET stream | Watched the stream during pushes | Nothing appeared for ~15s; looked broken | Low | Set keepAliveMs: 3000 and documented it | Document the keep-alive default prominently in the transport docs |
+| 5 | Model selection on Gemini | Called gemini-2.0-flash with a new key | 404 "model not available for new keys" | Medium | Read error payload; switched to gemini-3.8-flash | Keep surfacing the recommended replacement model in the error (already good) |
+| 6 | LLM provider died mid-demo | 429 quota-exhausted during recording | Demo take scrapped | High | Built a provider abstraction: Featherless (OpenAI-compatible tools) primary, Gemini automatic fallback | Not a bug — but graphic proof that multi-provider fallback is essential for demos |
+| 7 | Empty-body POST handling | Notification POSTs carry no JSON body | Crashed on JSON.parse of empty body | Medium | Parse only when non-empty; treat as {} | Transport could document the notification case for custom servers |
+
+```
+
+Priority summary: #1 and #3 are Critical/High (both now have documented workarounds in our code + docs/product-feedback.md).
 
 ---
 

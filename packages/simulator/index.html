@@ -311,7 +311,11 @@
 <script type="module">
   // MCP server endpoint. Default: localhost:3001. Override with ?mcp=https://... —
   // lets the deployed simulator point at a hosted Meridian server (see README).
-  const MCP_URL = new URLSearchParams(location.search).get("mcp") || "http://localhost:3001/mcp";
+  // MCP endpoint: explicit ?mcp= override, else same-origin /api/mcp when this page is
+  // hosted (e.g. Vercel), else the local dev server.
+  const _qs = new URLSearchParams(location.search);
+  const MCP_URL = _qs.get("mcp")
+    || (location.protocol.startsWith("http") && location.hostname !== "localhost" ? `${location.origin}/api/mcp` : "http://localhost:3001/mcp");
   let sessionId = null;
   let canvasLoaded = false;   // set true on canvas 'meridian:ready'
   let rpcId = 100;            // JSON-RPC ids must be integers (floats parse-error on some transports)
@@ -595,6 +599,12 @@
   initMcp().catch((e) => {
     setConn("", "offline");
     addMsg("meridian", `⚠️ Could not reach MCP server at ${MCP_URL} — ${e.message}`);
+  }).finally(() => {
+    // ?auto=1 — auto-run the first scenario (useful for demos & screenshots)
+    const p = new URLSearchParams(location.search);
+    if (p.get("auto") && !busy) {
+      setTimeout(() => document.querySelector(".sugg button")?.click(), 400);
+    }
   });
 </script>
 </body>
