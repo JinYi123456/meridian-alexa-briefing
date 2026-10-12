@@ -76,7 +76,7 @@ Meridian is a **self-hosted MCP server** (official spec `2025-11-25`, Streamable
 - voice *out* (spoken replies), calendar sync, conflict explanations.
 ```
 
-(去掉 accidentally-inserted word "konuş" before pasting.)
+(Note: remove the accidentally-inserted word "konuş" before pasting.)
 
 ---
 

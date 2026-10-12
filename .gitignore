@@ -3,7 +3,8 @@ node_modules/
 
 # Environment / secrets - NEVER commit
 .env
-.env.*
+.env.local
+.env.production
 *.pem
 *.key
 
