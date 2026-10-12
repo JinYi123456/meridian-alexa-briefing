@@ -164,6 +164,26 @@
   @keyframes rot { to { transform: rotate(360deg); } }
 
   @media (max-width: 560px) { #lanes { grid-template-columns: 1fr; } }
+
+  /* ---------- mobile re-assertions (LATE: placed after every base rule it
+     overrides — an earlier 640px block is cascade-cancelled by base rules)
+     Fixes: pipeline chips overlapping the crest/clock row + rebalance banner
+     on phones; chips now get their own full-width horizontal strip. ---------- */
+  @media (max-width: 640px) {
+    .top { position: relative; z-index: 3; padding: 10px 12px 4px; }
+    .top h1 { font-size: 13px; }
+    .top .live { font-size: 9px; }
+    #pipeline { position: relative; z-index: 2; display: flex; gap: 6px; overflow-x: auto; padding: 4px 12px 8px; scrollbar-width: none; background: transparent; }
+    .chip { font-size: 9px; padding: 4px 9px 4px 19px; white-space: nowrap; }
+    .chip::before { left: 7px; }
+    #rebalance { position: relative; z-index: 2; margin: 0 12px 6px; font-size: 9.5px; }
+    #lanes { padding: 2px 12px 8px; gap: 12px; }
+    .lane { padding: 12px 10px 12px 46px; min-height: 280px; }
+    .rail { left: 46px; right: 10px; top: 42px; bottom: 12px; }
+    footer { padding: 8px 12px 12px; font-size: 9.5px; gap: 10px; flex-wrap: wrap; }
+    .legend { gap: 8px; }
+    footer .legend span { font-size: 9px; }
+  }
 </style>
 </head>
 <body>
