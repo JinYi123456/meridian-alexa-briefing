@@ -15,6 +15,9 @@ PRIVATE_NOTES.md
 .DS_Store
 Thumbs.db
 
+# Python installer temp cache (hundreds of MB of BIT*.tmp payload blobs)
+Python/
+
 # Logs
 *.log
 npm-debug.log*

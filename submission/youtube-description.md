@@ -75,4 +75,4 @@ MCP, Model Context Protocol, MCP Apps, Alexa+, Amazon Developer Hackathon, AI ag
 
 Notes:
 - Chapters only render if the first line is `0:00` and every chapter is ≥10 s — the block above is tuned to the final cut's timings, don't re-time it.
-- After upload, send the URL back and the Devpost "Demo video" field + §4 of `submission/submission-devpost.md` can be filled in.
+- Uploaded 2026-10-12 → https://youtu.be/MLQzrs07ng8. If the video file is ever replaced (Studio → video row ⋮ → Replace video), the URL stays the same.

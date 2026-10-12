@@ -76,7 +76,7 @@ Meridian is a **self-hosted MCP server** (official spec `2025-11-25`, Streamable
 - voice *out* (spoken replies), calendar sync, conflict explanations.
 ```
 
-(Note: remove the accidentally-inserted word "konuş" before pasting.)
+(去掉 accidentally-inserted word "konuş" before pasting.)
 
 ---
 
@@ -97,7 +97,7 @@ JavaScript, Node.js, MCP, Model Context Protocol, MCP Apps, Streamable HTTP, SSE
 ## 4. Try it out / source links
 
 - **GitHub repo:** `https://github.com/JinYi123456/meridian-alexa-briefing`
-- **Demo video:** (YouTube/Vimeo URL after upload)
+- **Demo video:** https://youtu.be/MLQzrs07ng8
 - **Live demo URL:** see §4a (Vercel deployment — live now)
 
 ---
@@ -213,9 +213,9 @@ Priority summary: #1 and #3 are Critical/High (both now have documented workarou
 
 ## 7. Media checklist ( Produce these, 3:2 each )
 
-- [ ] **Thumbnail** (3:2, ≤5 MB) — screenshot from the drag-twist moment (rebalance banner visible), or a generated composite: orb + one-line tagline. Files: `media/thumbnail.png`
-- [ ] **Gallery images** (≤15, 3:2): hero orb empty state; full plan canvas; drag + "agent re-orchestrating"; terminal curl/SSE proof; proactive nudge bubble; mobile layout; voice-input close-up; end card. Screenshot set lives in `media/`.
-- [ ] **Demo video link** — YouTube/Vimeo public URL (< 3 min, English).
+- [x] **Thumbnail** (3:2, ≤5 MB) — files: `media/production/thumbnail-3x2.jpg` (also 16:9 at `media/production/thumbnail.jpg`)
+- [x] **Gallery images** (≤15, 3:2): `submission/screenshots/01-hero.png` … `09-mobile-live.png` (9 shots)
+- [x] **Demo video link** — https://youtu.be/MLQzrs07ng8 (2:13, English, 1080p)
 
 ---
 
@@ -238,8 +238,8 @@ submission/
 ## 9. Still TODO before Oct 23
 
 1. Finish `agent-runtime` OSS repo extraction → get its GitHub URL → replace placeholders in §5.
-2. Record + edit demo video per `docs/demo-video-plan.md` → get YouTube URL.
-3. Capture media set (§7) → make thumbnail.
+2. ~~Record + edit demo video~~ done → https://youtu.be/MLQzrs07ng8
+3. ~~Capture media set (§7) → make thumbnail~~ done → `submission/screenshots/` + `media/production/thumbnail.jpg`
 4. Fill the *new vs existing project* dropdown honestly (new).
 5. Community guidelines checkboxes + AI-tools disclosure (list: Claude/Codebuff-style coding AI, Gemini for testing).
 
@@ -249,9 +249,9 @@ submission/
 
 | Devpost field | File / value |
 |---|---|
-| Thumbnail | `media/thumbnail.png` |
-| Image gallery | `media/gallery-01.png` … `media/gallery-08.png` |
-| Video demo link | YouTube URL (from edited `media/meridian-demo-final.mp4`) |
+| Thumbnail | `media/production/thumbnail-3x2.jpg` (fallback: `media/production/thumbnail.jpg`) |
+| Image gallery | `submission/screenshots/01-hero.png` … `09-mobile-live.png` (9 images) |
+| Video demo link | https://youtu.be/MLQzrs07ng8 |
 | "Try it out" links | GitHub repo (+ optional deployed URL later) |
 | Code repository (judging) | GitHub URL, public + MIT |
 | Open Source Mini Challenge URLs | second-repo URL + this repo URL |

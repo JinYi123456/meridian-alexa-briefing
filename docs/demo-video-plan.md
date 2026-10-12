@@ -104,7 +104,7 @@ Rules: record everything at 1080p, browser zoom 100%, dark desktop wallpaper; 60
 - [ ] All 8 shots recorded (A–H), each ≥2 takes
 - [ ] Music bed trimmed to 2:50, ducked under VO
 - [ ] Captions burned in
-- [ ] Export 1080p H.264 (YouTube preset), audio -14 LUFS
-- [ ] Upload to YouTube (public, title contains "Meridian — MCP day planner"), grab URL
+- [x] Export 1080p H.264 (YouTube preset), audio -14 LUFS → `media/production/meridian-demo.mp4`
+- [x] Upload to YouTube (public) → https://youtu.be/MLQzrs07ng8
 - [ ] Thumbnail PNG 3:2 from 1:15 (the drag-twist frame) [see submission doc]
 - [ ] Check link plays on a logged-out phone (public visibility)
