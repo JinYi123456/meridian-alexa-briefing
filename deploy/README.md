@@ -22,9 +22,6 @@ node deploy/inline.cjs
 # then deploy with the sites manifest (deploy/manifest.json) to preview/production
 ```
 
-Live preview of the current bundle:
-`https://site-0e55de5de9cb46caa8261ef4b12d7921.freebuff.page`
-
 ## Pointing the hosted UI at your server
 
 Open `https://…/?mcp=<url-encoded MCP endpoint>` — for example:

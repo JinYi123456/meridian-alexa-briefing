@@ -77,17 +77,10 @@ Then click one of the scenario chips (or type your own messy week) — or press 
 https://meridian-alexa.vercel.app
 ```
 
-A static copy of the simulator UI is also available (managed hosting, free TLS):
+Prefer to host the UI yourself? The same `packages/simulator` UI can be published as a Worker (`deploy/worker.js`, see `deploy/README.md`) and pointed at **your** Meridian MCP server:
 
-```
-https://site-0e55de5de9cb46caa8261ef4b12d7921.freebuff.page
-```
-
-It serves the same `packages/simulator` UI through a Worker (`deploy/worker.js`, see `deploy/README.md`).
-Two ways to run the UI against **your** Meridian MCP server:
-
-1. Run the local MCP server (Quickstart step 3) and open the deployed page on the same machine — set the server address in the URL, e.g. `?mcp=http%3A%2F%2Flocalhost%3A3001%2Fmcp`
-2. Host the MCP server yourself (any Node host / VPS / Fly.io) and point the deployed UI at it: `https://…/index.html?mcp=https://your-server.example.com/mcp`
+1. Run the local MCP server (Quickstart step 3) and open your hosted UI on the same machine — set the server address in the URL, e.g. `?mcp=http%3A%2F%2Flocalhost%3A3001%2Fmcp`
+2. Host the MCP server yourself (any Node host / VPS / Fly.io) and point the hosted UI at it: `https://…/index.html?mcp=https://your-server.example.com/mcp`
 
 The full production setup (agent brain + tools + canvas server) must always run where your API keys live — that part is self-hosted by design.
 
