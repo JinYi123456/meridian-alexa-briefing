@@ -105,6 +105,6 @@ Rules: record everything at 1080p, browser zoom 100%, dark desktop wallpaper; 60
 - [ ] Music bed trimmed to 2:50, ducked under VO
 - [ ] Captions burned in
 - [x] Export 1080p H.264 (YouTube preset), audio -14 LUFS → `media/production/meridian-demo.mp4`
-- [x] Upload to YouTube (public) → https://youtu.be/MLQzrs07ng8
+- [x] Upload to YouTube (public) → https://youtu.be/1ewnFKpYSyI
 - [ ] Thumbnail PNG 3:2 from 1:15 (the drag-twist frame) [see submission doc]
 - [ ] Check link plays on a logged-out phone (public visibility)

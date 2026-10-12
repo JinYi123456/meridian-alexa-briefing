@@ -97,7 +97,7 @@ JavaScript, Node.js, MCP, Model Context Protocol, MCP Apps, Streamable HTTP, SSE
 ## 4. Try it out / source links
 
 - **GitHub repo:** `https://github.com/JinYi123456/meridian-alexa-briefing`
-- **Demo video:** https://youtu.be/MLQzrs07ng8
+- **Demo video:** https://youtu.be/1ewnFKpYSyI
 - **Live demo URL:** see §4a (Vercel deployment — live now)
 
 ---
@@ -215,7 +215,7 @@ Priority summary: #1 and #3 are Critical/High (both now have documented workarou
 
 - [x] **Thumbnail** (3:2, ≤5 MB) — files: `media/production/thumbnail-3x2.jpg` (also 16:9 at `media/production/thumbnail.jpg`)
 - [x] **Gallery images** (≤15, 3:2): `submission/screenshots/01-hero.png` … `09-mobile-live.png` (9 shots)
-- [x] **Demo video link** — https://youtu.be/MLQzrs07ng8 (2:13, English, 1080p)
+- [x] **Demo video link** — https://youtu.be/1ewnFKpYSyI (2:13, English, 1080p60)
 
 ---
 
@@ -238,7 +238,7 @@ submission/
 ## 9. Still TODO before Oct 23
 
 1. Finish `agent-runtime` OSS repo extraction → get its GitHub URL → replace placeholders in §5.
-2. ~~Record + edit demo video~~ done → https://youtu.be/MLQzrs07ng8
+2. ~~Record + edit demo video~~ done → https://youtu.be/1ewnFKpYSyI
 3. ~~Capture media set (§7) → make thumbnail~~ done → `submission/screenshots/` + `media/production/thumbnail.jpg`
 4. Fill the *new vs existing project* dropdown honestly (new).
 5. Community guidelines checkboxes + AI-tools disclosure (list: Claude/Codebuff-style coding AI, Gemini for testing).
@@ -251,7 +251,7 @@ submission/
 |---|---|
 | Thumbnail | `media/production/thumbnail-3x2.jpg` (fallback: `media/production/thumbnail.jpg`) |
 | Image gallery | `submission/screenshots/01-hero.png` … `09-mobile-live.png` (9 images) |
-| Video demo link | https://youtu.be/MLQzrs07ng8 |
+| Video demo link | https://youtu.be/1ewnFKpYSyI |
 | "Try it out" links | GitHub repo (+ optional deployed URL later) |
 | Code repository (judging) | GitHub URL, public + MIT |
 | Open Source Mini Challenge URLs | second-repo URL + this repo URL |
