@@ -71,7 +71,13 @@ Then click one of the scenario chips (or type your own messy week) — or press 
 
 ### Try it online (simulator UI)
 
-A deployed copy of the simulator UI is available (managed hosting, free TLS):
+**Fully working live demo** (simulator UI + MCP server + agent, all on Vercel):
+
+```
+https://meridian-alexa.vercel.app
+```
+
+A static copy of the simulator UI is also available (managed hosting, free TLS):
 
 ```
 https://site-0e55de5de9cb46caa8261ef4b12d7921.freebuff.page

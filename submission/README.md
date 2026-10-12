@@ -16,7 +16,7 @@ The full Inspiration / What it does / How we built it / Challenges / Accomplishm
 
 ## 🔑 Repo & Live URL
 - **Judging repo:** https://github.com/JinYi123456/meridian-alexa-briefing (public, MIT license visible — satisfies the repo requirement)
-- **Live URL (after Vercel deploy):** see `vercel-ready/README.md` — deploy takes ~2 minutes on vercel.com/new, then paste `https://<project>.vercel.app` into Devpost's "Try it out" links + Optional Project Testing Link.
+- **Live URL:** https://meridian-alexa.vercel.app — paste it into Devpost's "Try it out" links + Optional Project Testing Link.
 
 ## 📦 Additional file upload (≤35 MB)
 Zip **this folder** (`submission/`) as `meridian-submission.zip` and upload it in Devpost's "Upload a file" field. Contents:

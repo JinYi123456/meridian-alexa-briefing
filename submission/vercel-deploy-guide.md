@@ -25,7 +25,7 @@ agent loop with Featherless→Gemini fallback).
    | `FEATHERLESS_MODEL` | optional | default `unsloth/Llama-3.3-70B-Instruct` |
 
    Never paste these into the repo; Vercel env vars are encrypted at rest.
-5. **Deploy** → live at `https://<project>.vercel.app` (simulator at `/`,
+5. **Deploy** → live at `https://meridian-alexa.vercel.app` (simulator at `/`,
    MCP at `/api/mcp` — the simulator auto-detects same-origin `/api/mcp`).
 
 ## Deploy path B — CLI
@@ -43,10 +43,10 @@ npx vercel --prod         # -> https://meridian-alexa.vercel.app
 ## Verify after deploy
 
 ```bash
-open https://<project>.vercel.app                       # simulator loads, badge "mcp live"
-curl -sN "https://<project>.vercel.app/api/mcp" \
+open https://meridian-alexa.vercel.app                   # simulator loads, badge "mcp live"
+curl -sN "https://meridian-alexa.vercel.app/api/mcp" \
   -H 'accept: text/event-stream' &                      # GET stream
-curl -s "https://<project>.vercel.app/api/mcp" \
+curl -s "https://meridian-alexa.vercel.app/api/mcp" \
   -H 'content-type: application/json' \
   -H 'accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"probe","version":"0"}}}'
