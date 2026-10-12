@@ -25,13 +25,33 @@ Rationale text (kept for reference; the form field is dropdown-only):
 Significant. I implemented the full MCP spec 2025-11-25 (Streamable HTTP + SSE push) from the wire protocol up, built an MCP App interactive UI (SEP-1865) before most hosts render one, and learned to design provider-agnostic LLM tool-calling after a quota failure killed a demo take — the fallback architecture became a shipped feature. Every layer was verified in a real runtime, not just locally.
 ```
 
-## Gallery captions (filled, ≤140 chars; 01 = photo 5563806, 08 = photo 5563807)
+## Gallery captions (filled, ≤140 chars; 8 gallery items — 07 skipped as a near-duplicate of 08)
+
+Mobile shots (02/04/09) were re-captured from the live site 2026-10-12 evening: the old captures had horizontally-clipped content; 04 is now a landscape crop of the mobile canvas with live blocks.
 
 - Image 01 (hero, empty canvas) — 119 chars:
   `Speak or type the chaos, and the two-day canvas sits ready beside the chat — an MCP App, streamed live from the server.`
 
+- Image 02 (mobile hero) — 127 chars:
+  `The same MCP App on a phone: speak the chaos, and the two-day canvas docks right under the chat — one server, fully responsive.`
+
+- Image 03 (the canvas) — 127 chars:
+  `The canvas itself — an MCP App (ui:// resource) in a sandboxed iframe, drawn entirely from server-sent blocks over postMessage.`
+
+- Image 04 (mobile canvas, live blocks) — 127 chars:
+  `Live blocks on the mobile canvas — each one draggable; a drag fires reprioritize over MCP and the plan re-balances server-side.`
+
+- Image 05 (agent thinking) — 122 chars:
+  `Watch it think: the agent orchestrates over MCP — real tool calls and pushed progress stream into the canvas chip by chip.`
+
+- Image 06 (blocks land + first push) — 130 chars:
+  `Blocks land live as the agent works — and the first proactive reminder pushes over the SSE stream before it even finishes talking.`
+
 - Image 08 (rebalanced after drag) — 121 chars:
   `After a drag, the agent re-plans over MCP: dad's dinner moved up, a proactive reminder pushed over SSE — plan rebalanced.`
+
+- Image 09 (mobile live, server push) — 125 chars:
+  `Server push on a phone: a proactive reminder lands mid-run while the plan assembles on the docked canvas — all live over MCP.`
 
 ## Built with — corrected
 
