@@ -128,7 +128,7 @@ function buildServer(sid) {
  * The real initialize handshake arms the transport; nothing forced here.
  */
 function createSessionEntry(sid, { restored = false } = {}) {
-  const entry = { lastSeen: Date.now(), pending: [] };
+  const entry = { lastSeen: Date.now(), pending: [], canvas: { blocks: [], progress: [] } };
   entry.transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => sid,
     keepAliveMs: 3000,
