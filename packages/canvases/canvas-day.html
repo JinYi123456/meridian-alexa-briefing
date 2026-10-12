@@ -296,7 +296,7 @@
         el.innerHTML = `
           <div class="time"><span>${b.start}</span><span>${b.dur}m</span></div>
           <div class="t">${escapeHtml(b.title)}</div>
-          ${b.note ? `<div class="n">${escapeHtml(b.note)}</div>` : ""}
+          ${b.note && !noteIsRedundant(b.note, b.title) ? `<div class="n">${escapeHtml(b.note)}</div>` : ""}
         `;
         makeDraggable(el, b);
         wrap.appendChild(el);
@@ -414,6 +414,12 @@
   }
 
   function escapeHtml(s) { const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
+
+  // Some model runs echo the title into the note field; rendering both shows a visible duplicate.
+  function noteIsRedundant(note, title) {
+    const norm = (s) => String(s ?? "").replace(/\s+/g, "").replace(/[。.!！?？:：;；]+$/g, "").toLowerCase();
+    return norm(note) === norm(title);
+  }
 
   parentWindow.postMessage({ type: "meridian:ready" }, "*");
 </script>
