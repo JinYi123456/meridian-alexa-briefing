@@ -1,13 +1,18 @@
 /**
  * api/mcp.js — Vercel serverless wrapper around the Meridian MCP server.
  *
- * Reuses the exact same server logic as packages/mcp-server/src/index.js:
- * McpServer + StreamableHTTPServerTransport per session, module-level session
- * Map (works on Vercel Fluid instances; warm instances keep sessions alive),
- * and the agent loop with Featherless→Gemini fallback.
+ * Vercel's serverless infrastructure routes HTTP round-robins across lambda
+ * instances, so the `initialize` POST that created a session may land on one
+ * warm instance and the next POST/GET may land on a *different* instance that
+ * has never seen that session id. Previously the SDK's transport answered that
+ * unknown-session request with 400 "Bad Request: Server not initialized".
  *
- * Session eviction: Vercel instances recycle, so sessions are opportunistically
- * pruned (15 min max age). For the hackathon demo this is plenty.
+ * FIX — self-healing session restore: when a request arrives with a session id
+ * this instance doesn't know, we transparently rebuild the server (same tools,
+ * same canvas resource, same agent loop) and mark the transport as already
+ * initialized so the request is served normally. Because sessions are mostly
+ * stateless (plan state lives in the client/canvas, reminders are time-anchored),
+ * a restored session behaves identically to a warm one.
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -23,7 +28,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const PORT = 0; // not used; kept for log compatibility
 const log = (m) => console.log(`[meridian] ${m}`);
-const sessions = new Map(); // sid -> { transport, server, ctx, lastSeen, pending }
+const sessions = new Map(); // sid -> { transport, server, pending, lastSeen }
 const SESSION_TTL_MS = 15 * 60 * 1000;
 
 // -------- canvas html --------
@@ -118,6 +123,29 @@ function buildServer(sid) {
   return server;
 }
 
+/**
+ * Create a brand-new session entry (true first contact, no session id yet).
+ * The real initialize handshake arms the transport; nothing forced here.
+ */
+function createSessionEntry(sid, { restored = false } = {}) {
+  const entry = { lastSeen: Date.now(), pending: [] };
+  entry.transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: () => sid,
+    keepAliveMs: 3000,
+    onsessionclosed: () => sessions.delete(sid),
+  });
+  entry.server = buildServer(sid);
+  // Self-heal for restored sessions only: arm the inner transport as
+  // already-initialized with the incoming session id so validateSession()
+  // passes and the request is served normally. (sessionId lives on the inner
+  // WebStandard transport; the facade's getter merely proxies to it.)
+  if (restored) {
+    entry.transport._webStandardTransport._initialized = true;
+    entry.transport._webStandardTransport.sessionId = sid;
+  }
+  return entry;
+}
+
 // -------- HTTP handling (converted from node:http callback style) --------
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -141,35 +169,36 @@ export default async function handler(req, res) {
 
   // DELETE teardown
   if (req.method === "DELETE") {
-    if (sidHeader && sessions.has(sidHeader)) sessions.delete(sidHeader);
+    if (sidHeader) {
+      const known = sessions.get(sidHeader);
+      if (known?.transport) await known.transport.close().catch(() => {});
+      sessions.delete(sidHeader);
+    }
     res.writeHead(204);
     res.end();
     return;
   }
 
-  if (!entry) {
-    if (!["POST", "GET"].includes(req.method)) {
-      res.writeHead(405).end();
+  if (!sidHeader) {
+    // No session id on the wire: first contact — create a brand-new session.
+    if (req.method !== "POST") {
+      res.writeHead(400, { ...CORS_HEADERS, "Content-Type": "application/json" });
+      res.end(JSON.stringify({ jsonrpc: "2.0", error: { code: -32600, message: "Mcp-Session-Id header is required (POST initialize first)" }, id: null }));
       return;
     }
     const newSid = randomUUID();
-    entry = { lastSeen: Date.now(), pending: [] };
-    entry.transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => newSid,
-      keepAliveMs: 3000,
-      onsessionclosed: () => sessions.delete(newSid),
-    });
-    entry.server = buildServer(newSid);
+    entry = createSessionEntry(newSid);
     await entry.server.connect(entry.transport);
     sessions.set(newSid, entry);
-    entry.lastSeen = Date.now();
-    // replay any pending pushes buffered during init
-    for (const p of entry.pending.splice(0)) {
-      tryPush(newSid, p).catch(() => {});
-    }
+    log(`new session ${newSid.slice(0, 8)} (via ${req.method})`);
+  } else if (!entry) {
+    // Session id unknown on this lambda instance: self-heal by rebuilding.
+    entry = createSessionEntry(sidHeader, { restored: true });
+    await entry.server.connect(entry.transport);
+    sessions.set(sidHeader, entry);
+    log(`self-healed session ${sidHeader.slice(0, 8)} on colder instance`);
   } else {
     entry.lastSeen = Date.now();
   }
-
   await entry.transport.handleRequest(req, res);
 }

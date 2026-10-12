@@ -219,8 +219,8 @@
       String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0");
     const fmt = (off) => d.toLocaleDateString("en-US", { weekday:"short", month:"short", day:"numeric" }).toUpperCase();
     const tmw = new Date(Date.now() + 864e5);
-    document.getElementById("todayDate").textContent = "· " + fmt(0);
-    document.getElementById("tomorrowDate").textContent = "· " + tmw.toLocaleDateString("en-US", { weekday:"short", month:"short", day:"numeric" }).toUpperCase();
+    document.getElementById("todayDate").textContent = "- " + fmt(0);
+    document.getElementById("tomorrowDate").textContent = "- " + tmw.toLocaleDateString("en-US", { weekday:"short", month:"short", day:"numeric" }).toUpperCase();
   }
   tickClock(); setInterval(tickClock, 30000);
 
