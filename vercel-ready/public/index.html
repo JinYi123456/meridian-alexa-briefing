@@ -259,11 +259,14 @@
      override, or cascade order silently cancels them — this was the cause of the
      "half-half" broken phone layout) ---------- */
   @media (max-width: 640px) {
-    #hero { justify-content: flex-start; flex: 0 0 auto; min-height: 0; padding-top: 8px; gap: 12px; }
-    .hero-orb { width: 64px; height: 64px; }
-    #hero h2 { font-size: 20px; }
-    #hero p { font-size: 11.5px; max-width: 330px; }
-    #stream { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+    #hero { justify-content: flex-start; flex: 0 0 auto; min-height: 0; padding-top: 6px; gap: 10px; }
+    .hero-orb { width: 56px; height: 56px; box-shadow: 0 0 40px rgba(124,156,255,.35); }
+    #hero h2 { font-size: 18px; line-height: 1.25; }
+    #hero p { font-size: 11.5px; line-height: 1.5; max-width: 320px; display: none; }
+    /* hide the long paragraph on phones; keep orb + headline + chips only */
+    .hero-kbd { gap: 5px; }
+    .hero-kbd span { font-size: 9px; padding: 2px 6px; }
+    #stream { flex: 1 1 auto; min-height: 0; overflow-y: auto; gap: 12px; }
     #workspace { display: flex; flex-direction: column; overflow: hidden; }
     #chatCol { flex: 1 1 auto; min-height: 0; }
     #dockCol { flex: 0 0 46vh; min-height: 0; }
@@ -401,9 +404,17 @@
     const ct = res.headers.get("content-type") || "";
     if (!opts.empty && ct.includes("application/json")) return (await res.json());
     if (ct.includes("text/event-stream")) {
+      // SSE frames can be "event: message\ndata: {...}" — must NOT test
+      // chunk.startsWith("data:") (frame starts with "event:"). Parse the last
+      // data: line of the whole stream instead (last frame = the JSON-RPC reply,
+      // ": keepalive" comments carry no data line).
       const text = await res.text();
-      for (const chunk of text.split("\n\n").filter(Boolean)) {
-        if (chunk.startsWith("data:")) return JSON.parse(chunk.slice(5));
+      let lastData = null;
+      for (const line of text.split("\n")) {
+        if (line.startsWith("data:")) lastData = line.slice(5).trim();
+      }
+      if (lastData) {
+        try { return JSON.parse(lastData); } catch { return { result: null }; }
       }
       return { result: null };
     }
