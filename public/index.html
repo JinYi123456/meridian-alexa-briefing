@@ -349,6 +349,7 @@
   let canvasLoaded = false;   // set true on canvas 'meridian:ready'
   let rpcId = 100;            // JSON-RPC ids must be integers (floats parse-error on some transports)
   let toolCalls = 0, pushes = 0;
+  const recentPushes = new Map();   // dedupe identical pushes arriving on both streams
   const stream = document.getElementById("stream");
   const input = document.getElementById("input");
   const sendBtn = document.getElementById("send");
@@ -404,19 +405,37 @@
     const ct = res.headers.get("content-type") || "";
     if (!opts.empty && ct.includes("application/json")) return (await res.json());
     if (ct.includes("text/event-stream")) {
-      // SSE frames can be "event: message\ndata: {...}" — must NOT test
-      // chunk.startsWith("data:") (frame starts with "event:"). Parse the last
-      // data: line of the whole stream instead (last frame = the JSON-RPC reply,
-      // ": keepalive" comments carry no data line).
-      const text = await res.text();
-      let lastData = null;
-      for (const line of text.split("\n")) {
-        if (line.startsWith("data:")) lastData = line.slice(5).trim();
+      // Read INCREMENTALLY. On serverless hosts (Vercel round-robins across
+      // lambda instances) the GET push stream may live on a different instance
+      // than the one running the tool call — but the REQUEST's own SSE stream
+      // always comes from the same instance, and per spec the server streams
+      // related notifications on it. So: route notification frames live from
+      // this stream too, and resolve with the id-bearing JSON-RPC reply.
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "", result = null;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf("\n\n")) >= 0) {
+          const raw = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          for (const line of raw.split("\n")) {
+            if (!line.startsWith("data:")) continue;
+            try {
+              const j = JSON.parse(line.slice(5).trim());
+              if (j?.method === "notifications/message" && j.params?.data) {
+                routePushDedup(JSON.parse(j.params.data));
+              } else if (j && j.id !== undefined) {
+                result = j;
+              }
+            } catch {}
+          }
+        }
       }
-      if (lastData) {
-        try { return JSON.parse(lastData); } catch { return { result: null }; }
-      }
-      return { result: null };
+      return result ?? { result: null };
     }
     return { result: null };
   }
@@ -468,7 +487,7 @@
             const payload = line.slice(5).trim();
             try {
               const j = JSON.parse(payload);
-              if (j?.params?.data) { pushes++; bumpStats(); routePush(JSON.parse(j.params.data)); }
+              if (j?.params?.data) routePushDedup(JSON.parse(j.params.data));
             } catch {}
           }
         }
@@ -483,6 +502,21 @@
       hideThinking();
     }
     // assistant_text bubbles are suppressed here: the final tool result is the full reply.
+  }
+
+  // A notification may legitimately arrive on BOTH the request stream and the
+  // GET stream; count and render it only once.
+  function routePushDedup(p) {
+    const sig = JSON.stringify(p);
+    const now = Date.now();
+    const last = recentPushes.get(sig);
+    if (last && now - last < 2500) return;
+    recentPushes.set(sig, now);
+    if (recentPushes.size > 200) {
+      for (const [k, v] of recentPushes) if (now - v > 6000) recentPushes.delete(k);
+    }
+    pushes++; bumpStats();
+    routePush(p);
   }
 
   let canvasMsgQueue = [];
